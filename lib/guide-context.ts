@@ -1,0 +1,362 @@
+// Health Guide context builder.
+//
+// Permission-gated: reads ONLY the data areas listed in profile.guide_permissions
+// (subset of blood_pressure, medication, food, activity, sleep, symptoms).
+// NEVER reads a category the person has not permitted.
+// The craving-history existence check is authorized by the product rule that
+// craving support stays hidden unless a craving/nicotine event was recorded.
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BpReading, Medication, MedicationLog } from './types'
+
+export const GUIDE_PERMISSION_AREAS = [
+  'blood_pressure',
+  'medication',
+  'food',
+  'activity',
+  'sleep',
+  'symptoms',
+] as const
+export type GuidePermissionArea = (typeof GUIDE_PERMISSION_AREAS)[number]
+
+export interface GuideSection {
+  heading: 'PERSONAL' | 'PRESCRIPTION' | 'OBSERVED'
+  body: string
+}
+
+export interface FoodItemSummary {
+  meal_name: string
+  meal_type: string | null
+  sodium_mg: number
+}
+
+export interface StepDay {
+  date: string
+  steps: number
+  walking_minutes: number
+}
+
+export interface SleepDay {
+  date: string
+  sleep_hours: number | null
+}
+
+export interface StressEntry {
+  mood: string
+  notes: string | null
+  logged_at: string
+}
+
+export interface GuideContext {
+  name: string | null
+  age: number | null
+  conditions: string[]
+  permissions: GuidePermissionArea[]
+  /** Labeled narrative sections for the chat system prompt. No evidence here. */
+  sections: GuideSection[]
+  /** Structured data for deterministic intent handling. */
+  recentBp: BpReading[]
+  activeMedications: Medication[]
+  todayMedLogs: MedicationLog[]
+  todayFood: FoodItemSummary[]
+  todaySodiumMg: number
+  sodiumTargetMg: number
+  stepTarget: number
+  recentSteps: StepDay[]
+  recentSleep: SleepDay[]
+  todayStress: StressEntry[]
+  hasCravingHistory: boolean
+}
+
+function isArea(p: string): p is GuidePermissionArea {
+  return (GUIDE_PERMISSION_AREAS as readonly string[]).includes(p)
+}
+
+function startOfTodayISO(): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString()
+}
+
+function sevenDaysAgoISO(): string {
+  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+}
+
+function shortDate(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function shortTime(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+function prescriptionSourceLabel(source: Medication['instruction_source']): string {
+  switch (source) {
+    case 'prescription':
+      return 'Your prescription says'
+    case 'clinician':
+      return 'Your clinician instructed'
+    case 'pharmacist':
+      return 'Your pharmacist advised'
+    default:
+      return 'You noted'
+  }
+}
+
+export async function buildGuideContext(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<GuideContext> {
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('name, age, conditions, sodium_target, step_target, guide_permissions')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const profile = (profileRow ?? {}) as {
+    name?: string | null
+    age?: number | null
+    conditions?: string[] | null
+    sodium_target?: number | null
+    step_target?: number | null
+    guide_permissions?: string[] | null
+  }
+
+  const rawPerms = Array.isArray(profile.guide_permissions)
+    ? profile.guide_permissions
+    : [...GUIDE_PERMISSION_AREAS]
+  const permissions = rawPerms.filter(isArea)
+  const allowed = (area: GuidePermissionArea) => permissions.includes(area)
+
+  const name = profile.name ?? null
+  const age = typeof profile.age === 'number' ? profile.age : null
+  const conditions = Array.isArray(profile.conditions) ? profile.conditions : []
+  const sodiumTargetMg = typeof profile.sodium_target === 'number' ? profile.sodium_target : 2000
+  const stepTarget = typeof profile.step_target === 'number' ? profile.step_target : 6000
+
+  const sections: GuideSection[] = []
+  const observed: string[] = []
+
+  // ---- personal identity (always allowed: it is the person's own profile) ----
+  const personalBits: string[] = []
+  if (name) personalBits.push(`Name: ${name}`)
+  if (age !== null) personalBits.push(`Age: ${age}`)
+  if (conditions.length > 0) personalBits.push(`Known conditions: ${conditions.join(', ')}`)
+  if (personalBits.length > 0) {
+    sections.push({ heading: 'PERSONAL', body: personalBits.join('. ') + '.' })
+  }
+
+  const sevenDaysAgo = sevenDaysAgoISO()
+  const todayStart = startOfTodayISO()
+
+  // ---- blood pressure (7 days) ----
+  let recentBp: BpReading[] = []
+  if (allowed('blood_pressure')) {
+    const { data } = await supabase
+      .from('bp_readings')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('measured_at', sevenDaysAgo)
+      .order('measured_at', { ascending: false })
+    recentBp = ((data ?? []) as BpReading[]).slice(0, 30)
+    if (recentBp.length === 0) {
+      observed.push('No blood pressure readings recorded in the last 7 days.')
+    } else {
+      const latest = recentBp[0]
+      observed.push(
+        `${recentBp.length} blood pressure reading(s) in the last 7 days. ` +
+          `Latest: ${latest.systolic}/${latest.diastolic} on ${shortDate(latest.measured_at)} (${latest.period}).`
+      )
+    }
+  }
+
+  // ---- medications + today's logs ----
+  let activeMedications: Medication[] = []
+  let todayMedLogs: MedicationLog[] = []
+  if (allowed('medication')) {
+    const [{ data: meds }, { data: logs }] = await Promise.all([
+      supabase
+        .from('medications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('active', true)
+        .order('time', { ascending: true }),
+      supabase
+        .from('medication_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('logged_at', todayStart)
+        .order('logged_at', { ascending: false }),
+    ])
+    activeMedications = (meds ?? []) as Medication[]
+    todayMedLogs = (logs ?? []) as MedicationLog[]
+
+    const prescriptionLines: string[] = []
+    for (const med of activeMedications) {
+      const label = `${med.name}${med.dose ? ` ${med.dose}` : ''}`
+      if (med.instructions && med.instruction_source !== 'user') {
+        prescriptionLines.push(
+          `${label} (${med.frequency ?? 'Daily'} at ${med.time ?? 'unscheduled'}): ` +
+            `${prescriptionSourceLabel(med.instruction_source)}: "${med.instructions}"`
+        )
+      }
+      const todays = todayMedLogs.filter((l) => l.medication_id === med.id)
+      const taken = todays.find((l) => l.status === 'taken')
+      observed.push(
+        taken
+          ? `${label}: marked taken today at ${shortTime(taken.logged_at)}.`
+          : `${label}: not yet marked taken today (scheduled ${med.time ?? 'unscheduled'}).`
+      )
+    }
+    if (prescriptionLines.length > 0) {
+      sections.push({ heading: 'PRESCRIPTION', body: prescriptionLines.join('\n') })
+    }
+    // user-noted instructions belong to PERSONAL, not PRESCRIPTION
+    const userNoted = activeMedications.filter(
+      (m) => m.instructions && m.instruction_source === 'user'
+    )
+    if (userNoted.length > 0) {
+      sections.push({
+        heading: 'PERSONAL',
+        body:
+          'Medication notes the person wrote themselves: ' +
+          userNoted
+            .map((m) => `${m.name}: "${m.instructions}"`)
+            .join('; '),
+      })
+    }
+    if (activeMedications.length === 0) {
+      observed.push('No active medications on file.')
+    }
+  }
+
+  // ---- food (today) ----
+  let todayFood: FoodItemSummary[] = []
+  let todaySodiumMg = 0
+  if (allowed('food')) {
+    const { data } = await supabase
+      .from('food_records')
+      .select('meal_name, meal_type, sodium_mg')
+      .eq('user_id', userId)
+      .gte('logged_at', todayStart)
+      .order('logged_at', { ascending: true })
+    todayFood = (data ?? []) as FoodItemSummary[]
+    todaySodiumMg = todayFood.reduce((sum, f) => sum + (f.sodium_mg || 0), 0)
+    if (todayFood.length === 0) {
+      observed.push('No meals logged today.')
+    } else {
+      observed.push(
+        `Today's meals: ${todayFood.map((f) => `${f.meal_name} (${f.sodium_mg || 0} mg sodium)`).join(', ')}. ` +
+          `Total sodium so far today: ${todaySodiumMg} mg of a ${sodiumTargetMg} mg daily target.`
+      )
+    }
+  }
+
+  // ---- activity + sleep (7 days, from daily_metrics) ----
+  let recentSteps: StepDay[] = []
+  let recentSleep: SleepDay[] = []
+  if (allowed('activity') || allowed('sleep')) {
+    const { data } = await supabase
+      .from('daily_metrics')
+      .select('date, steps, walking_minutes, sleep_hours')
+      .eq('user_id', userId)
+      .gte('date', sevenDaysAgo.slice(0, 10))
+      .order('date', { ascending: false })
+    const rows = (data ?? []) as {
+      date: string
+      steps: number | null
+      walking_minutes: number | null
+      sleep_hours: number | null
+    }[]
+    if (allowed('activity')) {
+      recentSteps = rows.map((r) => ({
+        date: r.date,
+        steps: r.steps ?? 0,
+        walking_minutes: r.walking_minutes ?? 0,
+      }))
+      const withSteps = recentSteps.filter((r) => r.steps > 0)
+      if (withSteps.length === 0) {
+        observed.push('No step counts recorded in the last 7 days.')
+      } else {
+        const avg = Math.round(
+          withSteps.reduce((s, r) => s + r.steps, 0) / withSteps.length
+        )
+        observed.push(
+          `Steps recorded on ${withSteps.length} of the last 7 days (average ${avg} steps on days with data; daily target ${stepTarget}).`
+        )
+      }
+    }
+    if (allowed('sleep')) {
+      recentSleep = rows
+        .filter((r) => r.sleep_hours !== null && r.sleep_hours !== undefined)
+        .map((r) => ({ date: r.date, sleep_hours: r.sleep_hours }))
+      if (recentSleep.length === 0) {
+        observed.push('No sleep hours recorded in the last 7 days.')
+      } else {
+        const latest = recentSleep[0]
+        observed.push(
+          `Most recent sleep: ${latest.sleep_hours} hours on ${shortDate(latest.date + 'T12:00:00')}.`
+        )
+      }
+    }
+  }
+
+  // ---- symptoms -> today's stress/check-in logs ----
+  let todayStress: StressEntry[] = []
+  if (allowed('symptoms')) {
+    const { data } = await supabase
+      .from('stress_logs')
+      .select('mood, notes, logged_at')
+      .eq('user_id', userId)
+      .gte('logged_at', todayStart)
+      .order('logged_at', { ascending: false })
+    todayStress = (data ?? []) as StressEntry[]
+    if (todayStress.length > 0) {
+      const latest = todayStress[0]
+      observed.push(
+        `Today's check-in: feeling "${latest.mood}"${latest.notes ? ` — note: "${latest.notes}"` : ''}.`
+      )
+    }
+  }
+
+  if (observed.length > 0) {
+    sections.push({ heading: 'OBSERVED', body: observed.join('\n') })
+  }
+
+  // ---- craving history: existence check only (drives chip visibility) ----
+  let hasCravingHistory = false
+  {
+    const { data } = await supabase
+      .from('habit_records')
+      .select('id')
+      .eq('user_id', userId)
+      .in('kind', ['craving_event', 'smoking_event'])
+      .limit(1)
+    hasCravingHistory = ((data ?? []) as { id: string }[]).length > 0
+  }
+
+  return {
+    name,
+    age,
+    conditions,
+    permissions,
+    sections,
+    recentBp,
+    activeMedications,
+    todayMedLogs,
+    todayFood,
+    todaySodiumMg,
+    sodiumTargetMg,
+    stepTarget,
+    recentSteps,
+    recentSleep,
+    todayStress,
+    hasCravingHistory,
+  }
+}
