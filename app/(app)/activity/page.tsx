@@ -84,17 +84,17 @@ export default function ActivityPage() {
         <SectionTitle>Walk timer</SectionTitle>
         {running ? (
           <div>
-            <p className="text-5xl font-bold text-blue-800 my-4" role="timer" aria-live="polite">
+            <p className="text-5xl font-bold text-primary my-4" role="timer" aria-live="polite">
               {fmt(elapsed)}
             </p>
-            <p className="text-slate-600 mb-4">Nice going — keep at your own pace.</p>
+            <p className="text-text-secondary mb-4">Nice going — keep at your own pace.</p>
             <button className={btnPrimary} onClick={stopWalk}>
               Stop walk
             </button>
           </div>
         ) : (
           <div>
-            <p className="text-slate-600 mb-4">Tap start when you head out. We will add the minutes when you stop.</p>
+            <p className="text-text-secondary mb-4">Tap start when you head out. We will add the minutes when you stop.</p>
             <button className={btnPrimary} onClick={startWalk}>
               Start walk
             </button>
@@ -105,17 +105,17 @@ export default function ActivityPage() {
       <Card>
         <SectionTitle>Today</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-500">Walking</p>
-            <p className="text-3xl font-bold text-slate-900">{minutes} <span className="text-base font-normal">min</span></p>
+          <div className="rounded-xl bg-surface-secondary p-4">
+            <p className="text-sm font-semibold text-text-secondary">Walking</p>
+            <p className="text-3xl font-bold text-text-primary">{minutes} <span className="text-base font-normal">min</span></p>
           </div>
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-500">Steps</p>
-            <p className="text-3xl font-bold text-slate-900">{steps.toLocaleString()}</p>
-            <p className="text-sm text-slate-500">Target: {target.toLocaleString()}</p>
+          <div className="rounded-xl bg-surface-secondary p-4">
+            <p className="text-sm font-semibold text-text-secondary">Steps</p>
+            <p className="text-3xl font-bold text-text-primary">{steps.toLocaleString()}</p>
+            <p className="text-sm text-text-secondary">Target: {target.toLocaleString()}</p>
           </div>
         </div>
-        <p className="text-sm text-slate-500 mt-4">
+        <p className="text-sm text-text-secondary mt-4">
           Steps can be updated if your phone or watch shares them later.
         </p>
       </Card>

@@ -62,7 +62,7 @@ export default async function GetHelpPage() {
               </div>
               <a
                 href={`tel:${c.phone}`}
-                className="rounded-xl bg-primary px-5 py-3 font-semibold text-white"
+                className="rounded-xl bg-primary px-5 py-3 font-semibold text-primary-contrast"
               >
                 Call
               </a>

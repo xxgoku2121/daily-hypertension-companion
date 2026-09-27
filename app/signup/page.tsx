@@ -9,6 +9,17 @@ import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button, Card, Input } from '@/components/ui'
+import { Logo } from '@/components/Logo'
+
+const LAST_EMAIL_KEY = 'steady.lastEmail'
+
+function saveLastEmail(email: string) {
+  try {
+    localStorage.setItem(LAST_EMAIL_KEY, email)
+  } catch {
+    /* storage unavailable — signup still works */
+  }
+}
 
 async function ensureUserRows(userId: string) {
   const supabase = createClient()
@@ -53,6 +64,7 @@ export default function SignupPage() {
       if (data.user) {
         await ensureUserRows(data.user.id)
       }
+      saveLastEmail(email.trim())
       if (data.session) {
         // Signed in immediately — start setup.
         router.push('/onboarding')
@@ -71,11 +83,14 @@ export default function SignupPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold">Create your account</h1>
-          <p className="mt-2 text-lg text-[var(--text-secondary)]">
-            Free to use. Your health information stays private to you.
-          </p>
+        <div className="mb-6 flex flex-col items-center gap-4 text-center">
+          <Logo size={60} sub="Daily Hypertension Companion" />
+          <div>
+            <h1 className="text-3xl font-bold">Create your account</h1>
+            <p className="mt-2 text-lg text-[var(--text-secondary)]">
+              Free to use. Your health information stays private to you.
+            </p>
+          </div>
         </div>
         <Card>
           <form onSubmit={onSubmit} className="flex flex-col gap-5">

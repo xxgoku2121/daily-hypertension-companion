@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { Medication, MedicationLog } from '@/lib/types'
+import { Modal } from '@/components/ui'
 
 const INSTRUCTION_SOURCE_OPTIONS = [
   { value: 'prescription', label: 'Prescription (most reliable)' },
@@ -45,19 +46,19 @@ function refillEstimate(med: MedicationRow): string | null {
 function statusBadge(status: string): { label: string; classes: string } {
   switch (status) {
     case 'taken':
-      return { label: 'Taken ✓', classes: 'bg-green-100 text-green-800' }
+      return { label: 'Taken ✓', classes: 'bg-success/10 text-success' }
     case 'skipped':
-      return { label: 'Skipped', classes: 'bg-slate-200 text-slate-700' }
+      return { label: 'Skipped', classes: 'bg-surface-secondary text-text-primary' }
     case 'snoozed':
-      return { label: 'Not yet', classes: 'bg-amber-100 text-amber-800' }
+      return { label: 'Not yet', classes: 'bg-warning/10 text-warning' }
     default:
-      return { label: 'Pending', classes: 'bg-blue-100 text-blue-800' }
+      return { label: 'Pending', classes: 'bg-primary/10 text-primary' }
   }
 }
 
 const inputCls =
-  'w-full min-h-[56px] rounded-xl border-2 border-slate-300 px-4 text-xl focus:border-blue-600 focus:outline-none'
-const labelCls = 'block text-lg font-semibold text-slate-800 mb-2'
+  'w-full min-h-[56px] rounded-xl border-2 border-border bg-surface px-4 text-xl text-text-primary focus:border-primary focus:outline-none'
+const labelCls = 'block text-lg font-semibold text-text-primary mb-2'
 
 interface MedForm {
   name: string
@@ -290,27 +291,27 @@ export default function MedicationsPage() {
     <div className="mx-auto max-w-3xl px-4 py-6 space-y-8">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Medicines</h1>
-          <p className="mt-1 text-lg text-slate-600">Today&apos;s schedule, all in one place.</p>
+          <h1 className="text-3xl font-bold text-text-primary">Medicines</h1>
+          <p className="mt-1 text-lg text-text-secondary">Today&apos;s schedule, all in one place.</p>
         </div>
         <button
           onClick={openAdd}
-          className="min-h-[56px] shrink-0 rounded-xl bg-blue-700 px-6 text-xl font-bold text-white hover:bg-blue-800"
+          className="min-h-[56px] shrink-0 rounded-xl bg-primary px-6 text-xl font-bold text-primary-contrast hover:bg-primary-hover"
         >
           + Add
         </button>
       </div>
 
       {error && (
-        <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4" role="alert">
-          <p className="text-lg font-semibold text-red-900">{error}</p>
+        <div className="rounded-xl border-2 border-danger/30 bg-danger/10 p-4" role="alert">
+          <p className="text-lg font-semibold text-danger">{error}</p>
           {retryAction && (
             <button
               onClick={() => {
                 setError(null)
                 retryAction()
               }}
-              className="mt-3 min-h-[48px] rounded-xl bg-red-700 px-6 text-lg font-bold text-white hover:bg-red-800"
+              className="mt-3 min-h-[48px] rounded-xl bg-danger px-6 text-lg font-bold text-white hover:bg-danger"
             >
               Try Again
             </button>
@@ -320,15 +321,15 @@ export default function MedicationsPage() {
 
       {/* Today's schedule */}
       <section aria-labelledby="schedule-heading">
-        <h2 id="schedule-heading" className="text-2xl font-bold text-slate-900">Today</h2>
+        <h2 id="schedule-heading" className="text-2xl font-bold text-text-primary">Today</h2>
         {loading ? (
-          <p className="mt-3 text-lg text-slate-600">Loading…</p>
+          <p className="mt-3 text-lg text-text-secondary">Loading…</p>
         ) : meds.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-6 text-center">
-            <p className="text-lg text-slate-600">No medicines yet. Add your first one to get started.</p>
+          <div className="mt-3 rounded-2xl border border-border bg-surface p-6 text-center">
+            <p className="text-lg text-text-secondary">No medicines yet. Add your first one to get started.</p>
             <button
               onClick={openAdd}
-              className="mt-4 min-h-[56px] rounded-xl bg-blue-700 px-8 text-xl font-bold text-white hover:bg-blue-800"
+              className="mt-4 min-h-[56px] rounded-xl bg-primary px-8 text-xl font-bold text-primary-contrast hover:bg-primary-hover"
             >
               Add a medicine
             </button>
@@ -340,18 +341,18 @@ export default function MedicationsPage() {
               const badge = statusBadge(log?.status ?? 'pending')
               const estimate = refillEstimate(med)
               return (
-                <li key={med.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <li key={med.id} className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-2xl font-bold text-slate-900">{med.name}</p>
-                      <p className="mt-1 text-lg text-slate-600">
+                      <p className="text-2xl font-bold text-text-primary">{med.name}</p>
+                      <p className="mt-1 text-lg text-text-secondary">
                         {med.dose ? `${med.dose} · ` : ''}{med.frequency}
                         {med.as_needed ? ' · as needed' : ''} · {formatTime(med.time)}
                       </p>
                       {med.instructions && (
-                        <p className="mt-2 text-base text-slate-600">
+                        <p className="mt-2 text-base text-text-secondary">
                           <span className="font-semibold">Directions:</span> {med.instructions}{' '}
-                          <span className="text-slate-500">
+                          <span className="text-text-secondary">
                             (from {
                               med.instruction_source === 'prescription' ? 'your prescription'
                               : med.instruction_source === 'clinician' ? 'your doctor'
@@ -362,7 +363,7 @@ export default function MedicationsPage() {
                         </p>
                       )}
                       {estimate && (
-                        <p className="mt-2 text-base font-semibold text-slate-700">{estimate}</p>
+                        <p className="mt-2 text-base font-semibold text-text-primary">{estimate}</p>
                       )}
                     </div>
                     <span className={`shrink-0 rounded-full px-3 py-1 text-base font-bold ${badge.classes}`}>
@@ -373,26 +374,26 @@ export default function MedicationsPage() {
                     <button
                       onClick={() => markStatus(med, 'taken')}
                       disabled={actingId === med.id}
-                      className="min-h-[56px] rounded-xl bg-green-700 px-4 text-xl font-bold text-white hover:bg-green-800 disabled:opacity-50"
+                      className="min-h-[56px] rounded-xl bg-success px-4 text-xl font-bold text-white hover:bg-success disabled:opacity-50"
                     >
                       I Took It
                     </button>
                     <button
                       onClick={() => markStatus(med, 'snoozed')}
                       disabled={actingId === med.id}
-                      className="min-h-[56px] rounded-xl border-2 border-slate-400 px-4 text-xl font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-50"
+                      className="min-h-[56px] rounded-xl border-2 border-border px-4 text-xl font-bold text-text-primary hover:bg-surface-secondary disabled:opacity-50"
                     >
                       Not Yet
                     </button>
                   </div>
                   <div className="mt-3 flex justify-end gap-4">
-                    <button onClick={() => openEdit(med)} className="min-h-[44px] px-2 text-lg font-semibold text-blue-800 underline">
+                    <button onClick={() => openEdit(med)} className="min-h-[44px] px-2 text-lg font-semibold text-primary underline">
                       Edit
                     </button>
                     <button
                       onClick={() => handleArchive(med)}
                       disabled={actingId === med.id}
-                      className="min-h-[44px] px-2 text-lg font-semibold text-slate-600 underline"
+                      className="min-h-[44px] px-2 text-lg font-semibold text-text-secondary underline"
                     >
                       {archiveConfirmId === med.id ? 'Tap again to archive' : 'Archive'}
                     </button>
@@ -408,25 +409,25 @@ export default function MedicationsPage() {
       <section>
         <button
           onClick={() => setShowArchived((v) => !v)}
-          className="min-h-[48px] text-lg font-semibold text-slate-600 underline"
+          className="min-h-[48px] text-lg font-semibold text-text-secondary underline"
           aria-expanded={showArchived}
         >
           {showArchived ? 'Hide archived medicines' : 'Show archived medicines'}
         </button>
         {showArchived && (
           archived.length === 0 ? (
-            <p className="mt-2 text-lg text-slate-500">Nothing archived.</p>
+            <p className="mt-2 text-lg text-text-secondary">Nothing archived.</p>
           ) : (
             <ul className="mt-3 space-y-3">
               {archived.map((med) => (
-                <li key={med.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xl font-semibold text-slate-700">
+                <li key={med.id} className="flex items-center justify-between rounded-2xl border border-border bg-surface-secondary p-4">
+                  <p className="text-xl font-semibold text-text-primary">
                     {med.name}{med.dose ? ` · ${med.dose}` : ''}
                   </p>
                   <button
                     onClick={() => handleRestore(med)}
                     disabled={actingId === med.id}
-                    className="min-h-[48px] rounded-xl border-2 border-blue-700 px-5 text-lg font-bold text-blue-800"
+                    className="min-h-[48px] rounded-xl border-2 border-primary px-5 text-lg font-bold text-primary"
                   >
                     Restore
                   </button>
@@ -438,14 +439,13 @@ export default function MedicationsPage() {
       </section>
 
       {/* Add / edit form */}
-      {formOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="med-form-title">
-          <div className="mx-auto my-8 w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h2 id="med-form-title" className="text-2xl font-bold text-slate-900">
-              {editingId ? 'Edit medicine' : 'Add a medicine'}
-            </h2>
-
-            <div className="mt-4 space-y-4">
+      <Modal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={editingId ? 'Edit medicine' : 'Add a medicine'}
+        wide
+      >
+        <div className="mt-2 space-y-4">
               <div>
                 <label className={labelCls} htmlFor="med-name">Medicine name *</label>
                 <input id="med-name" className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Amlodipine" />
@@ -471,9 +471,9 @@ export default function MedicationsPage() {
                   type="button"
                   onClick={() => set('as_needed', !form.as_needed)}
                   aria-pressed={form.as_needed}
-                  className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border-2 px-4 text-left text-lg font-semibold ${form.as_needed ? 'border-blue-700 bg-blue-50 text-blue-900' : 'border-slate-300 text-slate-800'}`}
+                  className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border-2 px-4 text-left text-lg font-semibold ${form.as_needed ? 'border-primary bg-primary/10 text-primary' : 'border-border text-text-primary'}`}
                 >
-                  <span className={`flex h-7 w-7 items-center justify-center rounded-md border-2 ${form.as_needed ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-400'}`} aria-hidden="true">
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-md border-2 ${form.as_needed ? 'border-primary bg-primary text-primary-contrast' : 'border-border'}`} aria-hidden="true">
                     {form.as_needed ? '✓' : ''}
                   </span>
                   Only take as needed
@@ -481,14 +481,14 @@ export default function MedicationsPage() {
               </div>
               <div>
                 <label className={labelCls} htmlFor="med-instructions">Directions</label>
-                <textarea id="med-instructions" rows={2} className="w-full min-h-[56px] rounded-xl border-2 border-slate-300 px-4 py-3 text-xl focus:border-blue-600 focus:outline-none" value={form.instructions} onChange={(e) => set('instructions', e.target.value)} placeholder="Take with food…" />
+                <textarea id="med-instructions" rows={2} className="w-full min-h-[56px] rounded-xl border-2 border-border px-4 py-3 text-xl focus:border-primary focus:outline-none" value={form.instructions} onChange={(e) => set('instructions', e.target.value)} placeholder="Take with food…" />
               </div>
               <div>
                 <label className={labelCls} htmlFor="med-source">Where are these directions from?</label>
                 <select id="med-source" className={inputCls} value={form.instruction_source} onChange={(e) => set('instruction_source', e.target.value)}>
                   {INSTRUCTION_SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <p className="mt-1 text-base text-slate-500">Directions from your prescription are the most reliable — they outrank anything else.</p>
+                <p className="mt-1 text-base text-text-secondary">Directions from your prescription are the most reliable — they outrank anything else.</p>
               </div>
               <div>
                 <label className={labelCls} htmlFor="med-prescriber">Prescribed by</label>
@@ -516,19 +516,17 @@ export default function MedicationsPage() {
               </div>
             </div>
 
-            {formError && <p className="mt-3 text-lg font-semibold text-red-700" role="alert">{formError}</p>}
+            {formError && <p className="mt-3 text-lg font-semibold text-danger" role="alert">{formError}</p>}
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <button onClick={() => setFormOpen(false)} className="min-h-[56px] rounded-xl border-2 border-slate-400 text-xl font-bold text-slate-800">
+              <button onClick={() => setFormOpen(false)} className="min-h-[56px] rounded-xl border-2 border-border text-xl font-bold text-text-primary">
                 Cancel
               </button>
-              <button onClick={handleSaveForm} disabled={savingForm} className="min-h-[56px] rounded-xl bg-blue-700 text-xl font-bold text-white hover:bg-blue-800 disabled:opacity-50">
+              <button onClick={handleSaveForm} disabled={savingForm} className="min-h-[56px] rounded-xl bg-primary text-xl font-bold text-primary-contrast hover:bg-primary-hover disabled:opacity-50">
                 {savingForm ? 'Saving…' : editingId ? 'Save changes' : 'Add medicine'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   )
 }

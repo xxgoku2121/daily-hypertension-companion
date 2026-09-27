@@ -482,7 +482,7 @@ async function handleIntents(
 function buildSystemPrompt(ctx: GuideContext): string {
   const hello = firstNameOf(ctx)
   return (
-    `You are the Health Guide, a warm health coach inside the Daily Hypertension Companion app. ` +
+    `You are the Health Guide, a warm health coach inside the Steady app (Steady — Daily Hypertension Companion). ` +
     `You speak like a caring, plain-spoken companion — never like a database, a search box, or a disclaimer machine. ` +
     (hello
       ? `Address the person as ${hello}. `
@@ -547,13 +547,33 @@ async function askOpenAI(
   ctx: GuideContext,
   message: string,
   evidence: EvidenceSource[],
-  pageContext: string | null
+  pageContext: string | null,
+  image: string | null = null
 ): Promise<{ reply: string; evidence_ids: string[] } | null> {
   const key = process.env.OPENAI_API_KEY
   if (!key) return null
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), OPENAI_TIMEOUT_MS)
+    const systemContent =
+      buildSystemPrompt(ctx) +
+      (image
+        ? ' The user attached a photo. Look at it carefully and weave what you see into your answer (for example: foods and likely sodium, a medicine label and its directions, or a monitor reading). If the photo is unclear, say so and ask what they wanted you to see.'
+        : '')
+    const userContent: unknown = image
+      ? [
+          {
+            type: 'text',
+            text:
+              (message
+                ? message
+                : 'What do you see in this photo, and what should I know about it for my blood pressure?') +
+              '\n\n' +
+              buildUserPrompt(ctx, message || '(photo attached)', evidence, pageContext),
+          },
+          { type: 'image_url', image_url: { url: image, detail: 'low' } },
+        ]
+      : buildUserPrompt(ctx, message, evidence, pageContext)
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -566,8 +586,8 @@ async function askOpenAI(
         max_tokens: 700,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: buildSystemPrompt(ctx) },
-          { role: 'user', content: buildUserPrompt(ctx, message, evidence, pageContext) },
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
         ],
       }),
       signal: ctrl.signal,
@@ -650,7 +670,7 @@ export async function POST(request: Request) {
   if (!authed) return unauthorized()
   const { supabase, user } = authed
 
-  let body: { message?: unknown; pageContext?: unknown }
+  let body: { message?: unknown; pageContext?: unknown; image?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -663,7 +683,23 @@ export async function POST(request: Request) {
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   const pageContext =
     typeof body.pageContext === 'string' ? body.pageContext.slice(0, 100) : null
-  if (!message) {
+
+  // Optional attached photo (data URL). Validated: image MIME + size cap.
+  const MAX_IMAGE_CHARS = 7 * 1024 * 1024 // ~5 MB of image data
+  let image: string | null = null
+  if (typeof body.image === 'string' && body.image.length > 0) {
+    const looksRight =
+      /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(body.image)
+    if (!looksRight || body.image.length > MAX_IMAGE_CHARS + 30) {
+      return NextResponse.json(
+        { error: 'That photo could not be used. Please try a JPG or PNG under 5 MB.' },
+        { status: 400 }
+      )
+    }
+    image = body.image
+  }
+
+  if (!message && !image) {
     return NextResponse.json({ error: 'Please type a message first.' }, { status: 400 })
   }
   if (message.length > MAX_MESSAGE_LENGTH) {
@@ -685,7 +721,7 @@ export async function POST(request: Request) {
       await supabase.from('ai_messages').insert({
         user_id: user.id,
         role: 'user',
-        content: message,
+        content: image ? `${message}\n[Photo attached]`.trim() : message,
         page_context: pageContext,
       })
     }
@@ -722,8 +758,11 @@ export async function POST(request: Request) {
     const topics = topicsForMessage(message)
     const evidence = await fetchEvidence(supabase, topics)
 
-    // Deterministic intents work with or without OpenAI.
-    const handled = await handleIntents(supabase, user.id, message, intents, ctx)
+    // Deterministic intents work with or without OpenAI (text only —
+    // a photo always goes to the vision path below).
+    const handled = image
+      ? null
+      : await handleIntents(supabase, user.id, message, intents, ctx)
 
     let reply: string
     let proposals: ActionProposal[] = []
@@ -735,11 +774,21 @@ export async function POST(request: Request) {
       proposals = handled.proposals
       usedEvidence = handled.evidence ?? []
     } else {
-      const ai = await askOpenAI(ctx, message, evidence, pageContext)
+      const ai = await askOpenAI(ctx, message, evidence, pageContext, image)
       if (ai) {
         reply = ai.reply
         usedEvidence = evidence.filter((e) => ai.evidence_ids.includes(e.id))
         mode = 'ai'
+      } else if (image) {
+        // Honest fallback: without the AI connection we cannot see photos.
+        const hello = firstNameOf(ctx)
+        reply =
+          `Thanks for the photo${hello ? `, ${hello}` : ''} — I can't view images right now ` +
+          `because my AI connection isn't set up yet. Could you describe what the photo shows ` +
+          `in a few words? For example: "a bowl of chicken soup" or "my blood pressure monitor showing 142/88".\n\n` +
+          `If this is urgent — chest pain, trouble breathing, or a very high reading with symptoms — ` +
+          `please call emergency services right away rather than waiting on me.`
+        usedEvidence = []
       } else {
         const fb = fallbackReply(message, ctx, evidence)
         reply = fb.reply

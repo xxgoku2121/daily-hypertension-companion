@@ -20,6 +20,7 @@ import {
 } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FeedbackButton } from './FeedbackButton'
+import { LogoMark } from './Logo'
 import type { NextAction } from '@/lib/types'
 
 /* ============================== Icons ============================== */
@@ -510,7 +511,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Support',
     items: [
-      { href: '/guide', label: 'Health Guide', icon: 'chat' },
+      { href: '/guide', label: 'AI Chat', icon: 'chat' },
       { href: '/appointments', label: 'Appointments', icon: 'calendar' },
       { href: '/reports', label: 'Reports', icon: 'report' },
     ],
@@ -529,7 +530,7 @@ const BOTTOM_NAV: NavItem[] = [
   { href: '/home', label: 'Home', icon: 'home' },
   { href: '/bp', label: 'BP', icon: 'heart' },
   { href: '/medications', label: 'Medicine', icon: 'pill' },
-  { href: '/guide', label: 'Guide', icon: 'chat' },
+  { href: '/guide', label: 'AI Chat', icon: 'chat' },
 ]
 
 function NavLink({
@@ -569,11 +570,11 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 px-5 pb-2 pt-6">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-[var(--sidebar-text)]">
-          <Icon name="heart" className="h-6 w-6" />
-        </span>
+        <LogoMark size={44} />
         <div>
-          <p className="text-lg font-bold leading-tight">Health Companion</p>
+          <p className="text-xl font-extrabold leading-tight text-[var(--sidebar-text)]">
+            Steady
+          </p>
           <p className="text-sm text-[var(--sidebar-text-dim)]">
             {userName ? `Hello, ${userName}` : 'Your daily companion'}
           </p>
@@ -658,7 +659,7 @@ export function AppShell({
           .from('profiles')
           .select('onboarding_state')
           .eq('id', userId)
-          .single()
+          .maybeSingle()
         const status =
           (data?.onboarding_state as { status?: string } | null)?.status ??
           'not_started'
@@ -682,9 +683,10 @@ export function AppShell({
   const handleLogout = useCallback(async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }, [router])
+    // Full reload: clears all client state so the next visit starts clean.
+    // (The login page remembers the email on this device separately.)
+    window.location.href = '/login'
+  }, [])
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--text-primary)]">

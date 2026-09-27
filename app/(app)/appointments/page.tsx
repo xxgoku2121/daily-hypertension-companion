@@ -80,24 +80,24 @@ function VisitSummary({ appt }: { appt: Appointment }) {
   }, [snap])
 
   return (
-    <div className="print-area rounded-2xl border-2 border-blue-200 bg-blue-50 p-5 mt-4">
+    <div className="print-area rounded-2xl border-2 border-primary/30 bg-primary/10 p-5 mt-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h3 className="text-lg font-bold text-blue-900">Visit summary — ready for your doctor</h3>
+        <h3 className="text-lg font-bold text-primary">Visit summary — ready for your doctor</h3>
         <button className={`${btnSecondary} no-print`} onClick={() => window.print()}>
           Print
         </button>
       </div>
-      <p className="text-slate-700 mb-3">
+      <p className="text-text-primary mb-3">
         {appt.title}
         {appt.doctor ? ` with ${appt.doctor}` : ''} · {fmtDateTime(appt.date_time)}
         {appt.location ? ` · ${appt.location}` : ''}
       </p>
       {loading ? (
-        <p className="text-slate-500">Preparing your summary…</p>
+        <p className="text-text-secondary">Preparing your summary…</p>
       ) : !summary ? (
-        <p className="text-slate-600">Your summary could not be prepared right now.</p>
+        <p className="text-text-secondary">Your summary could not be prepared right now.</p>
       ) : (
-        <div className="space-y-3 text-slate-800">
+        <div className="space-y-3 text-text-primary">
           <div>
             <p className="font-semibold">Blood pressure — last 14 days ({summary.count} readings)</p>
             {summary.mAvg && (
@@ -252,7 +252,7 @@ export default function AppointmentsPage() {
             <Field label="Notes (optional)">
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} />
             </Field>
-            <label className="flex items-center gap-3 font-semibold text-slate-800">
+            <label className="flex items-center gap-3 font-semibold text-text-primary">
               <input type="checkbox" checked={transport} onChange={(e) => setTransport(e.target.checked)} className="h-6 w-6" />
               I need help getting there
             </label>
@@ -266,7 +266,7 @@ export default function AppointmentsPage() {
       )}
 
       {loading ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-text-secondary">Loading…</p>
       ) : (
         <div className="space-y-8">
           <section>
@@ -279,12 +279,12 @@ export default function AppointmentsPage() {
                   <Card key={a.id}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-lg font-bold text-slate-900">{a.title}</p>
-                        <p className="text-slate-600">{fmtDateTime(a.date_time)}</p>
-                        {a.doctor && <p className="text-slate-600">With {a.doctor}</p>}
-                        {a.location && <p className="text-slate-600">{a.location}</p>}
-                        {a.transport_needed && <p className="text-amber-700 font-semibold">🚗 Needs transport help</p>}
-                        {a.notes && <p className="text-slate-600 mt-1">{a.notes}</p>}
+                        <p className="text-lg font-bold text-text-primary">{a.title}</p>
+                        <p className="text-text-secondary">{fmtDateTime(a.date_time)}</p>
+                        {a.doctor && <p className="text-text-secondary">With {a.doctor}</p>}
+                        {a.location && <p className="text-text-secondary">{a.location}</p>}
+                        {a.transport_needed && <p className="text-warning font-semibold">🚗 Needs transport help</p>}
+                        {a.notes && <p className="text-text-secondary mt-1">{a.notes}</p>}
                       </div>
                       <div className="flex gap-2 no-print">
                         <button className={btnSecondary} onClick={() => setStatus(a.id, 'done')}>Mark done</button>
@@ -304,8 +304,8 @@ export default function AppointmentsPage() {
               <div className="space-y-3">
                 {past.map((a) => (
                   <Card key={a.id} className="opacity-80">
-                    <p className="font-bold text-slate-900">{a.title}</p>
-                    <p className="text-slate-600 text-sm">
+                    <p className="font-bold text-text-primary">{a.title}</p>
+                    <p className="text-text-secondary text-sm">
                       {fmtDateTime(a.date_time)} · {a.status === 'done' ? 'Done' : a.status === 'cancelled' ? 'Cancelled' : 'Passed'}
                     </p>
                   </Card>

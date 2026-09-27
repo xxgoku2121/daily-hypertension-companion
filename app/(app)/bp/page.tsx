@@ -37,13 +37,13 @@ interface EmergencyContact {
 
 function categoryOf(sys: number, dia: number): { label: string; classes: string } {
   if (sys >= 180 || dia >= 120)
-    return { label: 'Very high', classes: 'bg-red-100 text-red-800' }
+    return { label: 'Very high', classes: 'bg-danger/10 text-danger' }
   if (sys >= 140 || dia >= 90)
-    return { label: 'High', classes: 'bg-orange-100 text-orange-800' }
+    return { label: 'High', classes: 'bg-warning/10 text-warning' }
   if (sys >= 130 || dia >= 80)
-    return { label: 'Slightly high', classes: 'bg-amber-100 text-amber-800' }
-  if (sys >= 120) return { label: 'A bit elevated', classes: 'bg-yellow-100 text-yellow-800' }
-  return { label: 'In a healthy range', classes: 'bg-green-100 text-green-800' }
+    return { label: 'Slightly high', classes: 'bg-warning/10 text-warning' }
+  if (sys >= 120) return { label: 'A bit elevated', classes: 'bg-warning/10 text-warning' }
+  return { label: 'In a healthy range', classes: 'bg-success/10 text-success' }
 }
 
 function localDateKey(d: Date): string {
@@ -64,10 +64,10 @@ function formatWhen(iso: string): string {
 }
 
 const inputCls =
-  'w-full min-h-[56px] rounded-xl border-2 border-slate-300 px-4 text-2xl focus:border-blue-600 focus:outline-none'
-const labelCls = 'block text-lg font-semibold text-slate-800 mb-2'
+  'w-full min-h-[56px] rounded-xl border-2 border-border px-4 text-2xl focus:border-primary focus:outline-none'
+const labelCls = 'block text-lg font-semibold text-text-primary mb-2'
 const btnPrimary =
-  'w-full min-h-[56px] rounded-xl bg-blue-700 px-6 text-xl font-bold text-white hover:bg-blue-800 disabled:opacity-50'
+  'w-full min-h-[56px] rounded-xl bg-primary px-6 text-xl font-bold text-primary-contrast hover:bg-primary-hover disabled:opacity-50'
 
 export default function BpPage() {
   const [readings, setReadings] = useState<BpReading[]>([])
@@ -280,20 +280,20 @@ export default function BpPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Blood Pressure</h1>
-        <p className="mt-1 text-lg text-slate-600">Log your readings and see how you&apos;re doing.</p>
+        <h1 className="text-3xl font-bold text-text-primary">Blood Pressure</h1>
+        <p className="mt-1 text-lg text-text-secondary">Log your readings and see how you&apos;re doing.</p>
       </div>
 
       {error && (
-        <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4" role="alert">
-          <p className="text-lg font-semibold text-red-900">{error}</p>
+        <div className="rounded-xl border-2 border-danger/30 bg-danger/10 p-4" role="alert">
+          <p className="text-lg font-semibold text-danger">{error}</p>
           {retryAction && (
             <button
               onClick={() => {
                 setError(null)
                 retryAction()
               }}
-              className="mt-3 min-h-[48px] rounded-xl bg-red-700 px-6 text-lg font-bold text-white hover:bg-red-800"
+              className="mt-3 min-h-[48px] rounded-xl bg-danger px-6 text-lg font-bold text-white hover:bg-danger"
             >
               Try Again
             </button>
@@ -302,8 +302,8 @@ export default function BpPage() {
       )}
 
       {/* Log reading form */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="log-heading">
-        <h2 id="log-heading" className="text-2xl font-bold text-slate-900">Log a reading</h2>
+      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm" aria-labelledby="log-heading">
+        <h2 id="log-heading" className="text-2xl font-bold text-text-primary">Log a reading</h2>
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls} htmlFor="sys">Top number (systolic)</label>
@@ -355,15 +355,15 @@ export default function BpPage() {
                 aria-pressed={period === p}
                 className={`min-h-[56px] rounded-xl border-2 text-xl font-bold capitalize ${
                   period === p
-                    ? 'border-blue-700 bg-blue-50 text-blue-900'
-                    : 'border-slate-300 bg-white text-slate-700'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-surface text-text-primary'
                 }`}
               >
                 {p}
               </button>
             ))}
           </div>
-          <p className="mt-1 text-base text-slate-500">
+          <p className="mt-1 text-base text-text-secondary">
             We guessed {period} from the time — tap to change it.
           </p>
         </div>
@@ -388,7 +388,7 @@ export default function BpPage() {
           <textarea
             id="notes"
             rows={2}
-            className="w-full min-h-[56px] rounded-xl border-2 border-slate-300 px-4 py-3 text-xl focus:border-blue-600 focus:outline-none"
+            className="w-full min-h-[56px] rounded-xl border-2 border-border px-4 py-3 text-xl focus:border-primary focus:outline-none"
             placeholder="Anything worth remembering…"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -396,10 +396,10 @@ export default function BpPage() {
         </div>
 
         {formError && (
-          <p className="mt-3 text-lg font-semibold text-red-700" role="alert">{formError}</p>
+          <p className="mt-3 text-lg font-semibold text-danger" role="alert">{formError}</p>
         )}
         {savedNote && (
-          <p className="mt-3 text-lg font-semibold text-green-700" role="status">{savedNote}</p>
+          <p className="mt-3 text-lg font-semibold text-success" role="status">{savedNote}</p>
         )}
 
         <button onClick={handleSave} disabled={saving} className={`${btnPrimary} mt-5`}>
@@ -408,19 +408,19 @@ export default function BpPage() {
       </section>
 
       {/* Measurement guide */}
-      <section className="rounded-2xl border border-slate-200 bg-blue-50 p-6" aria-labelledby="guide-heading">
-        <h2 id="guide-heading" className="text-2xl font-bold text-slate-900">How to measure well</h2>
-        <ul className="mt-3 space-y-2 text-lg text-slate-800 list-disc pl-6">
+      <section className="rounded-2xl border border-border bg-primary/10 p-6" aria-labelledby="guide-heading">
+        <h2 id="guide-heading" className="text-2xl font-bold text-text-primary">How to measure well</h2>
+        <ul className="mt-3 space-y-2 text-lg text-text-primary list-disc pl-6">
           <li>Sit down and rest quietly for 5 minutes first.</li>
           <li>Sit with your back supported and feet flat on the floor.</li>
           <li>Rest your arm on a table so the cuff is at heart level.</li>
           <li>Don&apos;t talk during the measurement.</li>
         </ul>
         <details className="mt-3">
-          <summary className="cursor-pointer text-lg font-semibold text-blue-800 underline">
+          <summary className="cursor-pointer text-lg font-semibold text-primary underline">
             Why do these steps matter?
           </summary>
-          <p className="mt-2 text-lg text-slate-700">
+          <p className="mt-2 text-lg text-text-primary">
             Measuring the wrong way can give a falsely high reading. The American Heart
             Association recommends resting 5 minutes, sitting with back supported and
             feet flat, and keeping your arm at heart level.{' '}
@@ -428,7 +428,7 @@ export default function BpPage() {
               href={AHA_MEASURE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-blue-800 underline"
+              className="font-semibold text-primary underline"
             >
               Read the AHA guide
             </a>
@@ -437,10 +437,10 @@ export default function BpPage() {
       </section>
 
       {/* Weekly trend */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="trend-heading">
-        <h2 id="trend-heading" className="text-2xl font-bold text-slate-900">This week</h2>
+      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm" aria-labelledby="trend-heading">
+        <h2 id="trend-heading" className="text-2xl font-bold text-text-primary">This week</h2>
         {weekDays.every((d) => d.count === 0) ? (
-          <p className="mt-3 text-lg text-slate-600">No readings this week yet. Your trend will appear here.</p>
+          <p className="mt-3 text-lg text-text-secondary">No readings this week yet. Your trend will appear here.</p>
         ) : (
           <div className="mt-4">
             <div className="flex items-end justify-between gap-2 h-44" role="img" aria-label="Weekly blood pressure trend">
@@ -449,9 +449,9 @@ export default function BpPage() {
                   {d.sys !== null ? (
                     <div className="flex w-full items-end justify-center gap-1">
                       <div className="flex flex-col items-center justify-end">
-                        <span className="text-xs font-bold text-blue-900">{d.sys}</span>
+                        <span className="text-xs font-bold text-primary">{d.sys}</span>
                         <div
-                          className="w-6 rounded-t bg-blue-600"
+                          className="w-6 rounded-t bg-primary"
                           style={{ height: `${Math.max(6, (d.sys / maxBar) * 140)}px` }}
                         />
                       </div>
@@ -464,14 +464,14 @@ export default function BpPage() {
                       </div>
                     </div>
                   ) : (
-                    <span className="text-sm text-slate-400">—</span>
+                    <span className="text-sm text-text-secondary">—</span>
                   )}
-                  <span className="text-sm font-semibold text-slate-600">{d.label}</span>
+                  <span className="text-sm font-semibold text-text-secondary">{d.label}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex gap-6 text-base text-slate-600">
-              <span className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded bg-blue-600" /> Top number</span>
+            <div className="mt-2 flex gap-6 text-base text-text-secondary">
+              <span className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded bg-primary" /> Top number</span>
               <span className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded bg-teal-500" /> Bottom number</span>
             </div>
           </div>
@@ -480,41 +480,41 @@ export default function BpPage() {
 
       {/* History */}
       <section aria-labelledby="history-heading">
-        <h2 id="history-heading" className="text-2xl font-bold text-slate-900">Your readings</h2>
+        <h2 id="history-heading" className="text-2xl font-bold text-text-primary">Your readings</h2>
         {loading ? (
-          <p className="mt-3 text-lg text-slate-600">Loading…</p>
+          <p className="mt-3 text-lg text-text-secondary">Loading…</p>
         ) : readings.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-6 text-center">
-            <p className="text-lg text-slate-600">No readings yet. Your history will show up here.</p>
+          <div className="mt-3 rounded-2xl border border-border bg-surface p-6 text-center">
+            <p className="text-lg text-text-secondary">No readings yet. Your history will show up here.</p>
           </div>
         ) : (
           <ul className="mt-3 space-y-3">
             {readings.map((r) => {
               const cat = categoryOf(r.systolic, r.diastolic)
               return (
-                <li key={r.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <li key={r.id} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-2xl font-bold text-text-primary">
                         {r.systolic}/{r.diastolic}
                         {r.pulse !== null && (
-                          <span className="ml-2 text-lg font-normal text-slate-500">♥ {r.pulse}</span>
+                          <span className="ml-2 text-lg font-normal text-text-secondary">♥ {r.pulse}</span>
                         )}
                       </p>
-                      <p className="mt-1 text-base text-slate-500">
+                      <p className="mt-1 text-base text-text-secondary">
                         {formatWhen(r.measured_at)} · {r.period === 'morning' ? 'Morning' : 'Evening'}
                         {r.feeling ? ` · ${r.feeling}` : ''}
                       </p>
-                      {r.notes && <p className="mt-1 text-base text-slate-600">{r.notes}</p>}
+                      {r.notes && <p className="mt-1 text-base text-text-secondary">{r.notes}</p>}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <span className={`rounded-full px-3 py-1 text-sm font-bold ${cat.classes}`}>{cat.label}</span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+                      <span className="rounded-full bg-surface-secondary px-3 py-1 text-sm font-semibold text-text-secondary">
                         {r.source}
                       </span>
                       <button
                         onClick={() => handleDelete(r.id)}
-                        className="min-h-[44px] rounded-lg px-3 text-base font-semibold text-red-700 underline"
+                        className="min-h-[44px] rounded-lg px-3 text-base font-semibold text-danger underline"
                       >
                         {deletingId === r.id ? 'Tap again to delete' : 'Delete'}
                       </button>
@@ -530,13 +530,13 @@ export default function BpPage() {
       {/* Safety modal — stays until the review is completed */}
       {safety && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="safety-title">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-2xl bg-surface p-6 shadow-xl">
             {safetyOutcome === null ? (
               <>
-                <h2 id="safety-title" className="text-2xl font-bold text-red-800">
+                <h2 id="safety-title" className="text-2xl font-bold text-danger">
                   Your reading is very high: {safety.systolic}/{safety.diastolic}
                 </h2>
-                <p className="mt-2 text-lg text-slate-700">
+                <p className="mt-2 text-lg text-text-primary">
                   Do you have <strong>any</strong> of these symptoms right now? Check all that apply:
                 </p>
                 <div className="mt-4 space-y-2">
@@ -548,12 +548,12 @@ export default function BpPage() {
                       aria-pressed={checkedSymptoms.includes(s)}
                       className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border-2 px-4 text-left text-lg font-semibold ${
                         checkedSymptoms.includes(s)
-                          ? 'border-red-600 bg-red-50 text-red-900'
-                          : 'border-slate-300 bg-white text-slate-800'
+                          ? 'border-danger bg-danger/10 text-danger'
+                          : 'border-border bg-surface text-text-primary'
                       }`}
                     >
                       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-2 ${
-                        checkedSymptoms.includes(s) ? 'border-red-600 bg-red-600 text-white' : 'border-slate-400'
+                        checkedSymptoms.includes(s) ? 'border-danger bg-danger text-white' : 'border-border'
                       }`} aria-hidden="true">
                         {checkedSymptoms.includes(s) ? '✓' : ''}
                       </span>
@@ -565,37 +565,37 @@ export default function BpPage() {
                   <button
                     onClick={() => completeSafetyReview('emergency')}
                     disabled={checkedSymptoms.length === 0}
-                    className="min-h-[56px] w-full rounded-xl bg-red-700 px-6 text-xl font-bold text-white hover:bg-red-800 disabled:opacity-40"
+                    className="min-h-[56px] w-full rounded-xl bg-danger px-6 text-xl font-bold text-white hover:bg-danger disabled:opacity-40"
                   >
                     I have one or more of these
                   </button>
                   <button
                     onClick={() => completeSafetyReview('doctor')}
-                    className="min-h-[56px] w-full rounded-xl border-2 border-slate-400 px-6 text-xl font-bold text-slate-800 hover:bg-slate-100"
+                    className="min-h-[56px] w-full rounded-xl border-2 border-border px-6 text-xl font-bold text-text-primary hover:bg-surface-secondary"
                   >
                     None of these — I&apos;m okay
                   </button>
                 </div>
-                <p className="mt-3 text-base text-slate-500">
+                <p className="mt-3 text-base text-text-secondary">
                   This check stays here until you answer — it won&apos;t go away on its own.
                 </p>
               </>
             ) : safetyOutcome === 'emergency' ? (
               <>
-                <h2 id="safety-title" className="text-2xl font-bold text-red-800">Call emergency services now</h2>
-                <p className="mt-2 text-lg text-slate-700">
+                <h2 id="safety-title" className="text-2xl font-bold text-danger">Call emergency services now</h2>
+                <p className="mt-2 text-lg text-text-primary">
                   A very high reading with symptoms needs urgent care. <strong>Call 911</strong> (or your local emergency number) right away.
                 </p>
                 {emergencyContacts.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-lg font-semibold text-slate-800">Your emergency contacts:</p>
+                    <p className="text-lg font-semibold text-text-primary">Your emergency contacts:</p>
                     <ul className="mt-2 space-y-2">
                       {emergencyContacts.map((c) => (
-                        <li key={c.id} className="flex items-center justify-between rounded-xl bg-slate-100 p-3">
-                          <span className="text-lg font-semibold text-slate-800">
+                        <li key={c.id} className="flex items-center justify-between rounded-xl bg-surface-secondary p-3">
+                          <span className="text-lg font-semibold text-text-primary">
                             {c.name}{c.relationship ? ` (${c.relationship})` : ''}
                           </span>
-                          <a href={`tel:${c.phone}`} className="min-h-[48px] rounded-xl bg-blue-700 px-4 py-2 text-lg font-bold text-white">
+                          <a href={`tel:${c.phone}`} className="min-h-[48px] rounded-xl bg-primary px-4 py-2 text-lg font-bold text-primary-contrast">
                             Call
                           </a>
                         </li>
@@ -605,21 +605,21 @@ export default function BpPage() {
                 )}
                 <button
                   onClick={() => setSafety(null)}
-                  className="mt-5 min-h-[56px] w-full rounded-xl bg-slate-800 px-6 text-xl font-bold text-white"
+                  className="mt-5 min-h-[56px] w-full rounded-xl bg-[var(--text-primary)] px-6 text-xl font-bold text-[var(--background)]"
                 >
                   I understand
                 </button>
               </>
             ) : (
               <>
-                <h2 id="safety-title" className="text-2xl font-bold text-amber-800">Contact your doctor promptly</h2>
-                <p className="mt-2 text-lg text-slate-700">
+                <h2 id="safety-title" className="text-2xl font-bold text-warning">Contact your doctor promptly</h2>
+                <p className="mt-2 text-lg text-text-primary">
                   Your reading of {safety.systolic}/{safety.diastolic} is very high. Since you have no warning symptoms, call your doctor&apos;s office today for advice. If symptoms appear later, call 911.
                 </p>
-                <p className="mt-2 text-lg text-slate-700">This reading has been saved in your history.</p>
+                <p className="mt-2 text-lg text-text-primary">This reading has been saved in your history.</p>
                 <button
                   onClick={() => setSafety(null)}
-                  className="mt-5 min-h-[56px] w-full rounded-xl bg-slate-800 px-6 text-xl font-bold text-white"
+                  className="mt-5 min-h-[56px] w-full rounded-xl bg-[var(--text-primary)] px-6 text-xl font-bold text-[var(--background)]"
                 >
                   I understand
                 </button>

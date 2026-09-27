@@ -52,7 +52,7 @@ export default function DevicesPage() {
       <ErrorNote message={error} />
 
       {loading ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-text-secondary">Loading…</p>
       ) : (
         <div className="space-y-6">
           {devices.length > 0 && (
@@ -63,13 +63,13 @@ export default function DevicesPage() {
                   <Card key={d.id}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-lg font-bold text-slate-900">{d.name}</p>
-                        <p className="text-sm text-slate-500 capitalize">{d.kind.replace(/_/g, ' ')}</p>
+                        <p className="text-lg font-bold text-text-primary">{d.name}</p>
+                        <p className="text-sm text-text-secondary capitalize">{d.kind.replace(/_/g, ' ')}</p>
                         {(d.manufacturer || d.model) && (
-                          <p className="text-sm text-slate-500">{[d.manufacturer, d.model].filter(Boolean).join(' · ')}</p>
+                          <p className="text-sm text-text-secondary">{[d.manufacturer, d.model].filter(Boolean).join(' · ')}</p>
                         )}
                         {d.last_sync_at && (
-                          <p className="text-sm text-slate-500">
+                          <p className="text-sm text-text-secondary">
                             Last synced {new Date(d.last_sync_at).toLocaleString()}
                           </p>
                         )}
@@ -77,10 +77,10 @@ export default function DevicesPage() {
                       <span
                         className={`rounded-full px-3 py-1 text-sm font-semibold ${
                           d.status === 'connected'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-success/10 text-success'
                             : d.status === 'available_later'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-slate-100 text-slate-600'
+                              ? 'bg-warning/10 text-warning'
+                              : 'bg-surface-secondary text-text-secondary'
                         }`}
                       >
                         {d.status === 'connected' ? 'Connected' : d.status === 'available_later' ? 'Coming later' : 'Not connected'}
@@ -99,14 +99,14 @@ export default function DevicesPage() {
                 <Card key={p.name} className="border-dashed">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-lg font-bold text-slate-900">{p.name}</p>
-                      <p className="text-slate-600">{p.description}</p>
+                      <p className="text-lg font-bold text-text-primary">{p.name}</p>
+                      <p className="text-text-secondary">{p.description}</p>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+                    <span className="rounded-full bg-surface-secondary px-3 py-1 text-sm font-semibold text-text-secondary">
                       Not connected
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500 mt-3">
+                  <p className="text-sm text-text-secondary mt-3">
                     This is not available yet. We will let you know when it is — nothing here pretends to connect.
                   </p>
                 </Card>

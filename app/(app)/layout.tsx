@@ -26,7 +26,7 @@ export default async function AuthenticatedLayout({
     .from('profiles')
     .select('name')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   return (
     <AppShell userId={user.id} userName={profile?.name ?? null}>

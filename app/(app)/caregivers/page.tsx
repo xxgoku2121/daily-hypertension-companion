@@ -134,10 +134,10 @@ export default function CaregiversPage() {
               </Field>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">They may:</p>
+              <p className="text-sm font-semibold text-text-primary mb-2">They may:</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {PERMISSION_OPTIONS.map((p) => (
-                  <label key={p.value} className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-800 cursor-pointer">
+                  <label key={p.value} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3 font-semibold text-text-primary cursor-pointer">
                     <input type="checkbox" checked={perms.includes(p.value)} onChange={() => togglePerm(p.value)} className="h-6 w-6" />
                     {p.label}
                   </label>
@@ -154,10 +154,10 @@ export default function CaregiversPage() {
       )}
 
       {loading ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-text-secondary">Loading…</p>
       ) : caregivers.length === 0 ? (
         <EmptyState>
-          <p className="font-semibold text-slate-800 mb-1">No caregivers yet</p>
+          <p className="font-semibold text-text-primary mb-1">No caregivers yet</p>
           <p>Add a family member or friend you trust, and choose what they may see.</p>
         </EmptyState>
       ) : (
@@ -166,12 +166,12 @@ export default function CaregiversPage() {
             <Card key={c.id} className={!c.active ? 'opacity-70' : ''}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-lg font-bold text-slate-900">
+                  <p className="text-lg font-bold text-text-primary">
                     {c.name}
-                    {c.relationship && <span className="font-normal text-slate-500"> · {c.relationship}</span>}
-                    {!c.active && <span className="ml-2 text-sm font-semibold text-red-700">(access revoked)</span>}
+                    {c.relationship && <span className="font-normal text-text-secondary"> · {c.relationship}</span>}
+                    {!c.active && <span className="ml-2 text-sm font-semibold text-danger">(access revoked)</span>}
                   </p>
-                  <p className="text-slate-600 text-sm mt-1">
+                  <p className="text-text-secondary text-sm mt-1">
                     {c.permissions.length ? c.permissions.map(permLabel).join(' · ') : 'No permissions'}
                   </p>
                 </div>
@@ -192,20 +192,20 @@ export default function CaregiversPage() {
 
       <Card>
         <SectionTitle>Activity record</SectionTitle>
-        <p className="text-slate-600 text-sm mb-4">
+        <p className="text-text-secondary text-sm mb-4">
           Every change to caregiver access is written here, so there is always a clear record.
         </p>
         {audit.length === 0 ? (
-          <p className="text-slate-500">Nothing recorded yet.</p>
+          <p className="text-text-secondary">Nothing recorded yet.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-border">
             {audit.map((a) => (
               <li key={a.id} className="py-3 flex flex-wrap justify-between gap-2">
-                <p className="text-slate-800">
+                <p className="text-text-primary">
                   <span className="font-semibold">{a.caregiver_name}</span> —{' '}
                   {a.action === 'added' ? 'was added' : a.action === 'revoked' ? 'access was revoked' : a.action === 'reinstated' ? 'access was restored' : 'was updated'}
                 </p>
-                <p className="text-sm text-slate-500">{fmtDateTime(a.created_at)}</p>
+                <p className="text-sm text-text-secondary">{fmtDateTime(a.created_at)}</p>
               </li>
             ))}
           </ul>

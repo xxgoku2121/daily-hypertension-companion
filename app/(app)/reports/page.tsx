@@ -182,8 +182,8 @@ export default function ReportsPage() {
           <Card className="mb-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Health summary for {report.name}</h2>
-                <p className="text-slate-600">
+                <h2 className="text-2xl font-bold text-text-primary">Health summary for {report.name}</h2>
+                <p className="text-text-secondary">
                   {fmtDate(report.start + 'T00:00:00')} – {fmtDate(report.end + 'T00:00:00')}
                 </p>
               </div>
@@ -192,7 +192,7 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            <div className="space-y-5 text-slate-800">
+            <div className="space-y-5 text-text-primary">
               <section>
                 <h3 className="font-bold text-lg mb-1">Blood pressure</h3>
                 {report.readings ? (
@@ -249,7 +249,7 @@ export default function ReportsPage() {
                 )}
               </section>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-text-secondary">
                 Generated {new Date().toLocaleString()}. This summary is for discussion with your doctor — it is not
                 medical advice.
               </p>
@@ -261,7 +261,7 @@ export default function ReportsPage() {
       {/* Questions manager */}
       <Card className="no-print">
         <SectionTitle>Questions for my doctor</SectionTitle>
-        <p className="text-slate-600 mb-4">Write down anything you want to ask at your next visit.</p>
+        <p className="text-text-secondary mb-4">Write down anything you want to ask at your next visit.</p>
         <div className="flex gap-2 mb-4">
           <input
             value={newQ}
@@ -280,13 +280,13 @@ export default function ReportsPage() {
         ) : (
           <div className="space-y-2">
             {kept.map((q) => (
-              <div key={q.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
-                <p className="text-slate-800">{q.question}</p>
+              <div key={q.id} className="flex items-start justify-between gap-3 rounded-xl border border-border px-4 py-3">
+                <p className="text-text-primary">{q.question}</p>
                 <div className="flex shrink-0 gap-2">
-                  <button className="text-sm font-semibold text-green-700 underline" onClick={() => setQStatus(q.id, 'asked')}>
+                  <button className="text-sm font-semibold text-success underline" onClick={() => setQStatus(q.id, 'asked')}>
                     Mark asked
                   </button>
-                  <button className="text-sm font-semibold text-slate-500 underline" onClick={() => setQStatus(q.id, 'removed')}>
+                  <button className="text-sm font-semibold text-text-secondary underline" onClick={() => setQStatus(q.id, 'removed')}>
                     Remove
                   </button>
                 </div>
@@ -294,11 +294,11 @@ export default function ReportsPage() {
             ))}
             {asked.length > 0 && (
               <div className="pt-2">
-                <p className="text-sm font-semibold text-slate-500 mb-2">Already asked</p>
+                <p className="text-sm font-semibold text-text-secondary mb-2">Already asked</p>
                 {asked.map((q) => (
-                  <div key={q.id} className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 opacity-70">
-                    <p className="text-slate-700 line-through">{q.question}</p>
-                    <button className="text-sm font-semibold text-red-700 underline shrink-0" onClick={() => removeQuestion(q.id)}>
+                  <div key={q.id} className="flex items-start justify-between gap-3 rounded-xl bg-surface-secondary px-4 py-3 opacity-70">
+                    <p className="text-text-primary line-through">{q.question}</p>
+                    <button className="text-sm font-semibold text-danger underline shrink-0" onClick={() => removeQuestion(q.id)}>
                       Delete
                     </button>
                   </div>

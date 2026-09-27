@@ -5,9 +5,9 @@ import { ThemeProvider, THEME_STORAGE_KEY } from '@/lib/theme'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
-  title: 'Daily Hypertension Companion',
+  title: 'Steady — Daily Hypertension Companion',
   description:
-    'Your simple daily health companion — blood pressure, medicine, and gentle guidance.',
+    'Steady — your simple daily health companion for blood pressure, medicine, and gentle guidance.',
 }
 
 /**

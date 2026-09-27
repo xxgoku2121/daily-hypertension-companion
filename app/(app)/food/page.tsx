@@ -106,14 +106,14 @@ export default function FoodPage() {
 
       <Card className="mb-6">
         <SectionTitle>Today's sodium</SectionTitle>
-        <p className="text-3xl font-bold text-slate-900">
-          {total.toLocaleString()} <span className="text-base font-normal text-slate-500">mg</span>
+        <p className="text-3xl font-bold text-text-primary">
+          {total.toLocaleString()} <span className="text-base font-normal text-text-secondary">mg</span>
         </p>
-        <p className={`font-semibold ${over ? 'text-red-700' : 'text-slate-600'}`}>
+        <p className={`font-semibold ${over ? 'text-danger' : 'text-text-secondary'}`}>
           {over ? 'Over your target' : `Target: ${target.toLocaleString()} mg`}
         </p>
-        <div className="mt-2 h-4 rounded-full bg-slate-200 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-          <div className={`h-full rounded-full ${over ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${pct}%` }} />
+        <div className="mt-2 h-4 rounded-full bg-surface-secondary overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div className={`h-full rounded-full ${over ? 'bg-danger' : 'bg-primary'}`} style={{ width: `${pct}%` }} />
         </div>
       </Card>
 
@@ -139,7 +139,7 @@ export default function FoodPage() {
                 <input type="number" min={0} value={sodium} onChange={(e) => setSodium(e.target.value)} placeholder="e.g. 450" className={inputCls} />
               </Field>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-text-secondary">
               Not sure about sodium? A rough guess is fine — check the nutrition label when you can.
             </p>
             <div>
@@ -159,16 +159,16 @@ export default function FoodPage() {
             <Card key={m.id}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-bold text-slate-900">{m.meal_name}</p>
-                  <p className="text-sm text-slate-600">
+                  <p className="font-bold text-text-primary">{m.meal_name}</p>
+                  <p className="text-sm text-text-secondary">
                     {m.meal_type}
                     {m.portion ? ` · ${m.portion}` : ''} · {m.sodium_mg} mg sodium
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-text-secondary">
                     {new Date(m.logged_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                   </p>
                 </div>
-                <button className="text-sm font-semibold text-slate-500 underline shrink-0" onClick={() => remove(m.id)}>
+                <button className="text-sm font-semibold text-text-secondary underline shrink-0" onClick={() => remove(m.id)}>
                   Remove
                 </button>
               </div>

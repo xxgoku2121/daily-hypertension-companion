@@ -27,7 +27,7 @@ export function useSaved() {
     timer.current = window.setTimeout(() => setSaved(false), 2200)
   }
   const el = saved ? (
-    <span role="status" className="text-sm font-semibold text-green-700">
+    <span role="status" className="text-sm font-semibold text-success">
       Saved ✓
     </span>
   ) : null
@@ -64,8 +64,8 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-slate-600 max-w-2xl">{subtitle}</p>}
+        <h1 className="text-3xl font-bold text-text-primary">{title}</h1>
+        {subtitle && <p className="mt-1 text-text-secondary max-w-2xl">{subtitle}</p>}
       </div>
       {right}
     </div>
@@ -74,37 +74,37 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+    <div className={`rounded-2xl border border-border bg-surface p-5 shadow-sm ${className}`}>
       {children}
     </div>
   )
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="text-xl font-bold text-slate-900 mb-3">{children}</h2>
+  return <h2 className="text-xl font-bold text-text-primary mb-3">{children}</h2>
 }
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
     <label className="block">
-      <span className="block text-sm font-semibold text-slate-700 mb-1">{label}</span>
+      <span className="block text-sm font-semibold text-text-primary mb-1">{label}</span>
       {children}
-      {hint && <span className="block text-sm text-slate-500 mt-1">{hint}</span>}
+      {hint && <span className="block text-sm text-text-secondary mt-1">{hint}</span>}
     </label>
   )
 }
 
 export const inputCls =
-  'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100'
+  'w-full rounded-xl border border-border bg-surface px-4 py-3 text-text-primary placeholder:text-text-secondary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30'
 
 export const btnPrimary =
-  'inline-flex items-center justify-center rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 disabled:opacity-50'
+  'inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 font-semibold text-primary-contrast hover:bg-primary-hover disabled:opacity-50'
 
 export const btnSecondary =
-  'inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50'
+  'inline-flex items-center justify-center rounded-xl border border-border bg-surface px-5 py-3 font-semibold text-text-primary hover:bg-surface-secondary disabled:opacity-50'
 
 export const btnDanger =
-  'inline-flex items-center justify-center rounded-xl bg-red-700 px-5 py-3 font-semibold text-white hover:bg-red-800 disabled:opacity-50'
+  'inline-flex items-center justify-center rounded-xl bg-danger px-5 py-3 font-semibold text-white hover:bg-danger disabled:opacity-50'
 
 export function Toggle({
   checked,
@@ -123,19 +123,19 @@ export function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left"
+      className="flex w-full items-center justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3 text-left"
     >
       <span>
-        <span className="block font-semibold text-slate-900">{label}</span>
-        {description && <span className="block text-sm text-slate-500">{description}</span>}
+        <span className="block font-semibold text-text-primary">{label}</span>
+        {description && <span className="block text-sm text-text-secondary">{description}</span>}
       </span>
       <span
         className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors ${
-          checked ? 'bg-blue-700' : 'bg-slate-300'
+          checked ? 'bg-primary' : 'bg-surface-secondary'
         }`}
       >
         <span
-          className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-6 w-6 transform rounded-full bg-surface shadow transition-transform ${
             checked ? 'translate-x-7' : 'translate-x-1'
           }`}
         />
@@ -146,7 +146,7 @@ export function Toggle({
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-600">
+    <div className="rounded-2xl border border-dashed border-border bg-surface-secondary p-8 text-center text-text-secondary">
       {children}
     </div>
   )
@@ -155,7 +155,7 @@ export function EmptyState({ children }: { children: ReactNode }) {
 export function ErrorNote({ message }: { message: string | null }) {
   if (!message) return null
   return (
-    <p role="alert" className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-800">
+    <p role="alert" className="rounded-xl bg-danger/10 border border-danger/30 px-4 py-3 text-danger">
       {message}
     </p>
   )

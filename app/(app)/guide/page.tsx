@@ -12,6 +12,8 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   safety?: boolean
+  /** Attached photo (data URL), shown in the user's own bubble. Not persisted. */
+  photo?: string
 }
 
 interface EvidenceView {
@@ -77,6 +79,9 @@ export default function GuidePage() {
   const [error, setError] = useState<string | null>(null)
   const [listening, setListening] = useState(false)
   const [voiceSupported, setVoiceSupported] = useState(false)
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const listRef = useRef<HTMLDivElement>(null)
   const recognizerRef = useRef<SpeechRecognizer | null>(null)
@@ -123,20 +128,52 @@ export default function GuidePage() {
   }, [messages, cardsByMsg])
 
   // ---- send ----
+  const MAX_PHOTO_BYTES = 4 * 1024 * 1024
+
+  const handlePhotoFile = useCallback((file: File | undefined) => {
+    setPhotoError(null)
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please choose a photo file (JPG or PNG).')
+      return
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError('That photo is too large. Please pick one under 4 MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setPhoto(reader.result)
+    }
+    reader.onerror = () => setPhotoError('Could not read that photo. Please try another.')
+    reader.readAsDataURL(file)
+  }, [])
+
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, photoDataUrl?: string | null) => {
       const trimmed = text.trim()
-      if (!trimmed || sending) return
+      const attachedPhoto = photoDataUrl ?? null
+      if ((!trimmed && !attachedPhoto) || sending) return
       setInput('')
+      setPhoto(null)
+      setPhotoError(null)
       setError(null)
       setSending(true)
+      const displayText = trimmed || '📷 Photo'
       const tempId = `local-user-${Date.now()}`
-      setMessages((prev) => [...prev, { id: tempId, role: 'user', content: trimmed }])
+      setMessages((prev) => [
+        ...prev,
+        { id: tempId, role: 'user', content: displayText, photo: attachedPhoto ?? undefined },
+      ])
       try {
         const res = await fetch('/api/guide', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: trimmed, pageContext: 'guide' }),
+          body: JSON.stringify({
+            message: trimmed,
+            pageContext: 'guide',
+            image: attachedPhoto,
+          }),
         })
         const data = await res.json()
         if (!res.ok) {
@@ -274,11 +311,11 @@ export default function GuidePage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
       <header>
-        <h1 className="text-3xl font-bold text-[var(--text-primary)]">Health Guide</h1>
+        <h1 className="text-3xl font-bold text-[var(--text-primary)]">AI Chat</h1>
         <p className="mt-1 text-lg text-[var(--text-secondary)]">
           {firstName
-            ? `Hi ${firstName} — ask me anything about your health, in your own words.`
-            : 'Ask me anything about your health, in your own words.'}
+            ? `Hi ${firstName} — ask your Health Guide anything about your health, in your own words.`
+            : 'Ask your Health Guide anything about your health, in your own words.'}
         </p>
       </header>
 
@@ -297,7 +334,8 @@ export default function GuidePage() {
             <p className="font-semibold text-[var(--text-primary)]">Welcome to your Health Guide.</p>
             <p className="mt-2">
               I can help you figure out your next step, answer blood pressure questions, and
-              handle medicines and reminders. Try one of the suggestions below, or just type.
+              handle medicines and reminders. You can also send a photo — for example of a
+              meal or a medicine label. Try one of the suggestions below, or just type.
             </p>
           </div>
         )}
@@ -305,6 +343,14 @@ export default function GuidePage() {
           m.role === 'user' ? (
             <div key={m.id} className="flex justify-end">
               <div className="max-w-[85%] rounded-2xl bg-[var(--primary)] px-5 py-3 text-lg text-[var(--primary-contrast)]">
+                {m.photo && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={m.photo}
+                    alt="Photo you sent"
+                    className="mb-2 max-h-48 rounded-xl object-cover"
+                  />
+                )}
                 <p className="whitespace-pre-wrap">{m.content}</p>
               </div>
             </div>
@@ -449,11 +495,39 @@ export default function GuidePage() {
         )}
       </div>
 
+      {/* photo preview */}
+      {photo && (
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photo}
+            alt="Photo you attached"
+            className="h-16 w-16 rounded-xl object-cover"
+          />
+          <p className="flex-1 text-base text-[var(--text-secondary)]">
+            Photo attached — it will be sent with your message.
+          </p>
+          <button
+            type="button"
+            onClick={() => setPhoto(null)}
+            aria-label="Remove photo"
+            className="flex min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-[var(--border)] text-xl text-[var(--text-primary)]"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      {photoError && (
+        <p role="alert" className="text-base font-semibold text-[var(--danger)]">
+          {photoError}
+        </p>
+      )}
+
       {/* input row */}
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          sendMessage(input)
+          sendMessage(input, photo)
         }}
         className="flex items-end gap-2"
       >
@@ -469,6 +543,27 @@ export default function GuidePage() {
           disabled={sending}
           className="min-h-[56px] flex-1 resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] disabled:opacity-50"
         />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          aria-label="Attach a photo"
+          onChange={(e) => {
+            handlePhotoFile(e.target.files?.[0])
+            e.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Attach a photo"
+          title="Send a photo (for example of a meal or medicine label)"
+          disabled={sending}
+          className="flex min-h-[56px] min-w-[56px] items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-2xl text-[var(--text-primary)] disabled:opacity-50"
+        >
+          <span aria-hidden="true">📷</span>
+        </button>
         {voiceSupported && (
           <button
             type="button"
@@ -486,7 +581,7 @@ export default function GuidePage() {
         )}
         <button
           type="submit"
-          disabled={sending || !input.trim()}
+          disabled={sending || (!input.trim() && !photo)}
           className="min-h-[56px] rounded-2xl bg-[var(--primary)] px-6 text-lg font-semibold text-[var(--primary-contrast)] disabled:opacity-50"
         >
           Send

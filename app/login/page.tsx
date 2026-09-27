@@ -2,13 +2,34 @@
 
 /* Sign in with email + password. On success, make sure the user's
    profile and safety-rule rows exist, then head to /home
-   (the shell's onboarding guard reroutes to /onboarding when needed). */
+   (the shell's onboarding guard reroutes to /onboarding when needed).
+   The email address is remembered on this device so returning users
+   don't have to type it again after signing out. */
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button, Card, Input } from '@/components/ui'
+import { Logo } from '@/components/Logo'
+
+const LAST_EMAIL_KEY = 'steady.lastEmail'
+
+function loadLastEmail(): string {
+  try {
+    return localStorage.getItem(LAST_EMAIL_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function saveLastEmail(email: string) {
+  try {
+    localStorage.setItem(LAST_EMAIL_KEY, email)
+  } catch {
+    /* storage unavailable — sign-in still works */
+  }
+}
 
 async function ensureUserRows(userId: string) {
   const supabase = createClient()
@@ -21,7 +42,7 @@ async function ensureUserRows(userId: string) {
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(loadLastEmail)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -48,6 +69,7 @@ export default function LoginPage() {
       if (data.user) {
         await ensureUserRows(data.user.id)
       }
+      saveLastEmail(email.trim())
       router.push('/home')
       router.refresh()
     } finally {
@@ -58,11 +80,14 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold">Daily Hypertension Companion</h1>
-          <p className="mt-2 text-lg text-[var(--text-secondary)]">
-            Sign in to continue your day.
-          </p>
+        <div className="mb-6 flex flex-col items-center gap-4 text-center">
+          <Logo size={60} sub="Daily Hypertension Companion" />
+          <div>
+            <h1 className="text-3xl font-bold">Welcome back</h1>
+            <p className="mt-2 text-lg text-[var(--text-secondary)]">
+              Sign in to continue your day.
+            </p>
+          </div>
         </div>
         <Card>
           <form onSubmit={onSubmit} className="flex flex-col gap-5">
@@ -92,6 +117,10 @@ export default function LoginPage() {
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
+            <p className="text-center text-base text-[var(--text-secondary)]">
+              Your email is remembered on this device to make signing in
+              easier.
+            </p>
           </form>
           <p className="mt-6 text-center text-lg">
             New here?{' '}

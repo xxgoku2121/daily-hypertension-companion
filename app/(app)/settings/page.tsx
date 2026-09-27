@@ -101,10 +101,10 @@ export default function SettingsPage() {
     <main className={`mx-auto max-w-3xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
       <PageHeader title="Settings" subtitle="Make the app look and behave the way you like. Everything saves on its own." right={saved.el} />
       <ErrorNote message={error} />
-      {saving && <p className="text-sm text-slate-500 mb-4">Saving…</p>}
+      {saving && <p className="text-sm text-text-secondary mb-4">Saving…</p>}
 
       {!form ? (
-        <p className="text-slate-500">Loading your settings…</p>
+        <p className="text-text-secondary">Loading your settings…</p>
       ) : (
         <div className="space-y-6">
           {/* Appearance */}
@@ -120,8 +120,8 @@ export default function SettingsPage() {
                   onClick={() => patchField('appearance', a.value)}
                   className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left font-semibold ${
                     form.appearance === a.value
-                      ? 'border-blue-600 bg-blue-50 text-blue-900'
-                      : 'border-slate-200 text-slate-800 hover:bg-slate-50'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-text-primary hover:bg-surface-secondary'
                   }`}
                 >
                   {a.label}
@@ -144,8 +144,8 @@ export default function SettingsPage() {
                   onClick={() => patchField('text_size', t.value)}
                   className={`rounded-xl border px-5 py-3 font-semibold ${
                     form.text_size === t.value
-                      ? 'border-blue-600 bg-blue-50 text-blue-900'
-                      : 'border-slate-200 text-slate-800 hover:bg-slate-50'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-text-primary hover:bg-surface-secondary'
                   }`}
                 >
                   {t.label}
@@ -165,7 +165,7 @@ export default function SettingsPage() {
           {/* Health Guide data permissions */}
           <Card>
             <SectionTitle>Health Guide privacy</SectionTitle>
-            <p className="text-slate-600 mb-4">
+            <p className="text-text-secondary mb-4">
               Choose exactly what your Health Guide is allowed to look at. It cannot see anything you turn off.
             </p>
             <div className="space-y-2">
@@ -212,7 +212,7 @@ export default function SettingsPage() {
             <SectionTitle>Daily targets</SectionTitle>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="block text-sm font-semibold text-slate-700 mb-1">Daily sodium target (mg)</span>
+                <span className="block text-sm font-semibold text-text-primary mb-1">Daily sodium target (mg)</span>
                 <input
                   type="number"
                   min={0}
@@ -221,11 +221,11 @@ export default function SettingsPage() {
                     const v = Math.max(0, Math.round(Number(e.target.value) || 0))
                     if (v !== form.sodium_target) patchField('sodium_target', v)
                   }}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  className="w-full rounded-xl border border-border px-4 py-3"
                 />
               </label>
               <label className="block">
-                <span className="block text-sm font-semibold text-slate-700 mb-1">Daily step target</span>
+                <span className="block text-sm font-semibold text-text-primary mb-1">Daily step target</span>
                 <input
                   type="number"
                   min={0}
@@ -234,7 +234,7 @@ export default function SettingsPage() {
                     const v = Math.max(0, Math.round(Number(e.target.value) || 0))
                     if (v !== form.step_target) patchField('step_target', v)
                   }}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  className="w-full rounded-xl border border-border px-4 py-3"
                 />
               </label>
             </div>
@@ -243,7 +243,7 @@ export default function SettingsPage() {
           {/* My data */}
           <Card>
             <SectionTitle>My data</SectionTitle>
-            <p className="text-slate-600 mb-4">Take a copy of everything you have entered. It is yours.</p>
+            <p className="text-text-secondary mb-4">Take a copy of everything you have entered. It is yours.</p>
             <div className="flex flex-wrap gap-3">
               <a className={btnSecondary} href="/api/export?format=json" download>
                 Download all data (JSON)
@@ -255,15 +255,15 @@ export default function SettingsPage() {
           </Card>
 
           {/* Danger zone */}
-          <Card className="border-red-200">
+          <Card className="border-danger/30">
             <SectionTitle>
-              <span className="text-red-800">Danger zone</span>
+              <span className="text-danger">Danger zone</span>
             </SectionTitle>
 
             <div className="space-y-4">
               <div>
-                <p className="font-semibold text-slate-900">Start fresh</p>
-                <p className="text-slate-600 text-sm mb-2">
+                <p className="font-semibold text-text-primary">Start fresh</p>
+                <p className="text-text-secondary text-sm mb-2">
                   Deletes all of your health data — readings, medicines, meals, everything you logged —
                   but keeps your account and settings so you can begin again cleanly.
                 </p>
@@ -272,8 +272,8 @@ export default function SettingsPage() {
                     Start fresh…
                   </button>
                 ) : (
-                  <div className="rounded-xl bg-red-50 border border-red-200 p-4">
-                    <p className="font-semibold text-red-900 mb-3">
+                  <div className="rounded-xl bg-danger/10 border border-danger/30 p-4">
+                    <p className="font-semibold text-danger mb-3">
                       This will permanently delete all of your logged health data. Are you sure?
                     </p>
                     <div className="flex gap-3">
@@ -288,9 +288,9 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              <div className="border-t border-slate-200 pt-4">
-                <p className="font-semibold text-slate-900">Delete account</p>
-                <p className="text-slate-600 text-sm mb-2">
+              <div className="border-t border-border pt-4">
+                <p className="font-semibold text-text-primary">Delete account</p>
+                <p className="text-text-secondary text-sm mb-2">
                   Deletes all of your data and your profile, then signs you out. This cannot be undone.
                   To remove your sign-in itself, you can contact support afterward — your account will hold no data.
                 </p>
@@ -299,15 +299,15 @@ export default function SettingsPage() {
                     Delete my account…
                   </button>
                 ) : (
-                  <div className="rounded-xl bg-red-50 border border-red-200 p-4">
-                    <p className="font-semibold text-red-900 mb-2">
-                      Type <span className="font-mono bg-white px-1 rounded">DELETE</span> to confirm:
+                  <div className="rounded-xl bg-danger/10 border border-danger/30 p-4">
+                    <p className="font-semibold text-danger mb-2">
+                      Type <span className="font-mono bg-surface px-1 rounded">DELETE</span> to confirm:
                     </p>
                     <input
                       value={deleteText}
                       onChange={(e) => setDeleteText(e.target.value)}
                       placeholder="Type DELETE here"
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-3"
+                      className="w-full rounded-xl border border-border px-4 py-3 mb-3"
                     />
                     <div className="flex gap-3">
                       <button

@@ -161,10 +161,10 @@ export default function CareTeamPage() {
       )}
 
       {loading ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-text-secondary">Loading…</p>
       ) : members.length === 0 ? (
         <EmptyState>
-          <p className="font-semibold text-slate-800 mb-1">No one here yet</p>
+          <p className="font-semibold text-text-primary mb-1">No one here yet</p>
           <p>Add your doctor and pharmacist so their details are always handy.</p>
         </EmptyState>
       ) : (
@@ -173,11 +173,11 @@ export default function CareTeamPage() {
             <Card key={m.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-blue-700">{m.role}</p>
-                  <p className="text-lg font-bold text-slate-900">{m.name}</p>
-                  {m.phone && <p className="text-slate-700"><a className="underline" href={`tel:${m.phone}`}>{m.phone}</a></p>}
-                  {m.address && <p className="text-slate-600">{m.address}</p>}
-                  {m.notes && <p className="text-slate-600 mt-1">{m.notes}</p>}
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">{m.role}</p>
+                  <p className="text-lg font-bold text-text-primary">{m.name}</p>
+                  {m.phone && <p className="text-text-primary"><a className="underline" href={`tel:${m.phone}`}>{m.phone}</a></p>}
+                  {m.address && <p className="text-text-secondary">{m.address}</p>}
+                  {m.notes && <p className="text-text-secondary mt-1">{m.notes}</p>}
                 </div>
                 <div className="flex gap-2">
                   <button className={btnSecondary} onClick={() => openEdit(m)}>Edit</button>

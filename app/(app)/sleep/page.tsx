@@ -102,7 +102,7 @@ export default function SleepPage() {
             {busy ? 'Saving…' : 'Save'}
           </button>
           {savedNote && (
-            <span role="status" className="text-sm font-semibold text-green-700">
+            <span role="status" className="text-sm font-semibold text-success">
               Saved ✓
             </span>
           )}
@@ -112,15 +112,15 @@ export default function SleepPage() {
       <Card>
         <SectionTitle>Recent nights</SectionTitle>
         {recent.filter((r) => r.sleep_hours != null).length === 0 ? (
-          <p className="text-slate-500">No sleep logged yet.</p>
+          <p className="text-text-secondary">No sleep logged yet.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-border">
             {recent.map((r) => (
               <li key={r.date} className="py-3 flex flex-wrap justify-between gap-2">
-                <p className="text-slate-800 font-semibold">
+                <p className="text-text-primary font-semibold">
                   {new Date(r.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                 </p>
-                <p className="text-slate-600">
+                <p className="text-text-secondary">
                   {r.sleep_hours != null ? `${r.sleep_hours} hours` : '—'}
                   {r.bedtime ? ` · bed ${r.bedtime}` : ''}
                   {r.wake_time ? ` · up ${r.wake_time}` : ''}
