@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import {
   api,
   useProfile,
-  textSizeClass,
   PageHeader,
   Card,
   SectionTitle,
@@ -196,7 +195,7 @@ export default function ReportsPage() {
   const asked = questions.filter((q) => q.status === 'asked')
 
   return (
-    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className="mx-auto max-w-6xl px-4 py-8">
       <PrintStyles />
       <PageHeader title="Doctor reports" subtitle="A clear summary to bring to your appointment." />
       <ErrorNote message={error} />

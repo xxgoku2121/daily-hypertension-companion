@@ -5,7 +5,6 @@ import Link from 'next/link'
 import {
   api,
   useProfile,
-  textSizeClass,
   PageHeader,
   Card,
   SectionTitle,
@@ -102,7 +101,7 @@ export default function SleepPage() {
     QUALITIES.find((x) => x.value === q)?.short ?? null
 
   return (
-    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader title="Sleep" subtitle="How did you sleep last night? It affects your blood pressure." />
       <ErrorNote message={error} />
 

@@ -5,7 +5,6 @@ import Link from 'next/link'
 import {
   api,
   useProfile,
-  textSizeClass,
   PageHeader,
   Card,
   SectionTitle,
@@ -122,7 +121,7 @@ export default function CareTeamPage() {
   }
 
   return (
-    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader
         title="Care team"
         subtitle="Your doctor, pharmacist, and everyone who looks after your health."

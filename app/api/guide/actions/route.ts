@@ -5,6 +5,21 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { zonedDate } from '@/lib/day'
+
+/** Today's date (YYYY-MM-DD) in the person's own timezone, not the server's. */
+async function userToday(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', userId)
+    .maybeSingle()
+  const tz = (data as { timezone?: string | null } | null)?.timezone ?? null
+  return zonedDate(tz)
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -107,29 +122,24 @@ async function executeAction(
     case 'create_reminder': {
       const label = asString(params.label)
       if (!label) throw new Error('missing label')
-      const recurring = params.recurring === true
-      if (recurring) {
-        const { error } = await supabase.from('automation_rules').insert({
-          user_id: userId,
-          name: label.slice(0, 120),
-          trigger_desc: 'Daily reminder from Health Guide',
-          action_desc: label.slice(0, 300),
-          active: true,
-          created_from: 'ai',
-        })
-        if (error) throw error
-      } else {
-        const today = new Date().toISOString().slice(0, 10)
-        const { error } = await supabase.from('daily_tasks').insert({
-          user_id: userId,
-          date: today,
-          kind: 'reminder',
-          label: label.slice(0, 200),
-          completed: false,
-        })
-        if (error) throw error
+      // One-time reminders only. Recurring reminders are refused honestly at
+      // proposal time; if one ever arrives here, it becomes a single reminder
+      // rather than a promise nothing will keep.
+      const today = await userToday(supabase, userId)
+      const { error } = await supabase.from('daily_tasks').insert({
+        user_id: userId,
+        date: today,
+        kind: 'reminder',
+        label: label.slice(0, 200),
+        completed: false,
+      })
+      if (error) throw error
+      return {
+        message:
+          params.recurring === true
+            ? `Reminder set for today: ${label}. (Repeating reminders aren't available yet.)`
+            : `Reminder set: ${label}.`,
       }
-      return { message: `Reminder set: ${label}.` }
     }
 
     case 'add_doctor_question': {
@@ -223,6 +233,23 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'That confirmation expired. Please ask me again and I’ll prepare it fresh.' },
         { status: 410 }
+      )
+    }
+
+    // Atomically claim the action: the UPDATE only succeeds when the row is
+    // still 'pending', so two rapid confirms (double-tap) cannot both execute.
+    const { data: claimed } = await supabase
+      .from('ai_actions')
+      .update({ confirmation_status: 'confirmed' })
+      .eq('id', action.id)
+      .eq('user_id', user.id)
+      .eq('confirmation_status', 'pending')
+      .select('id')
+      .maybeSingle()
+    if (!claimed) {
+      return NextResponse.json(
+        { error: 'This was already handled — nothing more to do.' },
+        { status: 400 }
       )
     }
 

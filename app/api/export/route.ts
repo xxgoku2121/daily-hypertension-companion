@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { zonedDate } from '@/lib/day'
 
 // Tables holding user-owned data (profiles kept only in JSON snapshot; deleted separately).
 const USER_TABLES = [
@@ -37,21 +38,29 @@ const USER_TABLES = [
   'audit_events',
 ]
 
-function todayStamp() {
-  return new Date().toISOString().slice(0, 10)
+function todayStamp(tz: string | null): string {
+  return zonedDate(tz)
 }
 
 // GET ?format=json|csv
 //   json -> full user snapshot as a download (all tables)
 //   csv  -> blood-pressure readings as a CSV download
 export async function GET(req: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
 
-  const format = new URL(req.url).searchParams.get('format') || 'json'
+    const format = new URL(req.url).searchParams.get('format') || 'json'
+
+    const { data: tzProf } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', user.id)
+      .maybeSingle()
+    const tz = (tzProf as { timezone?: string | null } | null)?.timezone ?? null
 
   if (format === 'csv') {
     const { data, error } = await supabase
@@ -72,7 +81,7 @@ export async function GET(req: Request) {
     return new NextResponse(lines.join('\n'), {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="bp-readings-${todayStamp()}.csv"`,
+        'Content-Disposition': `attachment; filename="bp-readings-${todayStamp(tz)}.csv"`,
       },
     })
   }
@@ -96,8 +105,14 @@ export async function GET(req: Request) {
     {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'Content-Disposition': `attachment; filename="health-companion-data-${todayStamp()}.json"`,
+        'Content-Disposition': `attachment; filename="health-companion-data-${todayStamp(tz)}.json"`,
       },
     }
   )
+  } catch {
+    return NextResponse.json(
+      { error: 'Could not export your data. Please try again in a moment.' },
+      { status: 500 }
+    )
+  }
 }

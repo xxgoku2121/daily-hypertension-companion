@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { zonedDate } from '@/lib/day'
 
 async function authed() {
   const supabase = await createClient()
@@ -37,7 +38,15 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
-  const date: string = body.date || new Date().toISOString().slice(0, 10)
+  // The client always sends its local date; this fallback uses the person's
+  // timezone rather than the server's clock.
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const tz = (prof as { timezone?: string | null } | null)?.timezone ?? null
+  const date: string = body.date || zonedDate(tz)
 
   const { data: existing } = await supabase
     .from('daily_metrics')

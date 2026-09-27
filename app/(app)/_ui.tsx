@@ -8,7 +8,13 @@ export async function api<T>(path: string, opts?: RequestInit): Promise<T> {
     ...opts,
     headers: { 'Content-Type': 'application/json', ...(opts?.headers || {}) },
   })
-  if (res.status === 401) throw new Error('Please sign in again.')
+  if (res.status === 401) {
+    // Session expired mid-use: take the person to sign in rather than
+    // showing a confusing error. API routes return 401 JSON (the proxy
+    // no longer redirects /api/* to the login page).
+    if (typeof window !== 'undefined') window.location.href = '/login'
+    throw new Error('Please sign in again.')
+  }
   if (!res.ok) {
     const j = await res.json().catch(() => null)
     throw new Error(j?.error || 'Something went wrong. Please try again.')
@@ -41,12 +47,6 @@ export interface ProfileLike {
   step_target: number
   text_size: 'normal' | 'large' | 'extra_large'
   [k: string]: unknown
-}
-
-export function textSizeClass(textSize: string | undefined) {
-  if (textSize === 'large') return 'text-[1.08rem]'
-  if (textSize === 'extra_large') return 'text-[1.18rem]'
-  return ''
 }
 
 export function useProfile() {

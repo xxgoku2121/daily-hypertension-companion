@@ -8,7 +8,6 @@ import {
   api,
   useSaved,
   useProfile,
-  textSizeClass,
   PageHeader,
   Card,
   SectionTitle,
@@ -77,6 +76,7 @@ export default function SettingsPage() {
   }
 
   async function patchField(field: string, value: unknown) {
+    const prev = form?.[field]
     setForm((f) => (f ? { ...f, [field]: value } : f))
     setSaving(true)
     setError(null)
@@ -92,6 +92,8 @@ export default function SettingsPage() {
       else if (field === 'text_size') theme.setTextSize(value as TextSize)
       else if (field === 'reduce_motion') theme.setReduceMotion(value as boolean)
     } catch (e) {
+      // Roll back the optimistic update so the UI never shows an unsaved value.
+      setForm((f) => (f ? { ...f, [field]: prev } : f))
       setError(e instanceof Error ? e.message : 'Could not save. Please try again.')
     } finally {
       setSaving(false)
@@ -129,7 +131,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader title="Settings" subtitle="Make the app look and behave the way you like. Everything saves on its own." right={saved.el} />
       <ErrorNote message={error} />
       {saving && <p className="text-sm text-text-secondary mb-4">Saving…</p>}

@@ -117,3 +117,37 @@ export function zonedDayBounds(tz: string | null | undefined): {
     endIso: new Date(end).toISOString(),
   }
 }
+
+/**
+ * UTC instants bounding an explicit YYYY-MM-DD calendar day in the person's
+ * timezone. Same DST-safe midnight solving as zonedDayBounds.
+ */
+export function zonedDayBoundsForDate(
+  tz: string | null | undefined,
+  dateStr: string
+): { date: string; startIso: string; endIso: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+  if (!m) return null
+  const zone = resolveZone(tz)
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
+
+  const start = zonedMidnightUtc(y, mo, d, zone)
+  // Next calendar day, letting the Date roll months/years over.
+  const next = new Date(Date.UTC(y, mo - 1, d, 12, 0, 0))
+  next.setUTCDate(next.getUTCDate() + 1)
+  const end =
+    zonedMidnightUtc(
+      next.getUTCFullYear(),
+      next.getUTCMonth() + 1,
+      next.getUTCDate(),
+      zone,
+    ) - 1
+  return {
+    date: dateStr,
+    startIso: new Date(start).toISOString(),
+    endIso: new Date(end).toISOString(),
+  }
+}

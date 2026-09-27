@@ -42,10 +42,10 @@ export async function GET(req: Request) {
       .limit(200),
     supabase
       .from('medication_logs')
-      .select('id, medication_id, status, taken_at, date')
+      .select('id, medication_id, status, logged_at')
       .eq('user_id', user.id)
-      .gte('taken_at', cutoffIso)
-      .order('taken_at', { ascending: false })
+      .gte('logged_at', cutoffIso)
+      .order('logged_at', { ascending: false })
       .limit(200),
     supabase.from('medications').select('id, name').eq('user_id', user.id),
     supabase
@@ -98,7 +98,7 @@ export async function GET(req: Request) {
     if (l.status !== 'taken') continue
     events.push({
       id: `med-${l.id}`,
-      at: l.taken_at ?? `${l.date}T12:00:00Z`,
+      at: l.logged_at,
       kind: 'medication',
       icon: '💊',
       title: `Took ${medNames.get(l.medication_id) ?? 'medicine'}`,

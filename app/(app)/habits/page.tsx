@@ -5,7 +5,6 @@ import Link from 'next/link'
 import {
   api,
   useProfile,
-  textSizeClass,
   PageHeader,
   Card,
   SectionTitle,
@@ -269,7 +268,7 @@ export default function HabitsPage() {
   const stressLogs = recent.filter((r) => r.kind === 'stress_checkin')
 
   return (
-    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader title="Habits & Routines" subtitle="Support for cravings and daily routines — only what you choose." />
       <ErrorNote message={error} />
 

@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BpReading, Medication, MedicationLog } from './types'
+import { zonedDayBounds, zonedDate } from './day'
 
 export const GUIDE_PERMISSION_AREAS = [
   'blood_pressure',
@@ -27,7 +28,7 @@ export interface GuideSection {
 export interface FoodItemSummary {
   meal_name: string
   meal_type: string | null
-  sodium_mg: number
+  sodium_mg: number | null
 }
 
 export interface StepDay {
@@ -59,23 +60,22 @@ export interface GuideContext {
   activeMedications: Medication[]
   todayMedLogs: MedicationLog[]
   todayFood: FoodItemSummary[]
+  /** Sum of KNOWN sodium only — nulls are never treated as 0. */
   todaySodiumMg: number
+  /** Number of today's meals with unknown sodium (excluded from the total). */
+  unknownSodiumCount: number
   sodiumTargetMg: number
   stepTarget: number
   recentSteps: StepDay[]
   recentSleep: SleepDay[]
   todayStress: StressEntry[]
   hasCravingHistory: boolean
+  /** IANA timezone from profiles.timezone; null when unknown (UTC fallback). */
+  timezone: string | null
 }
 
 function isArea(p: string): p is GuidePermissionArea {
   return (GUIDE_PERMISSION_AREAS as readonly string[]).includes(p)
-}
-
-function startOfTodayISO(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
 }
 
 function sevenDaysAgoISO(): string {
@@ -115,7 +115,7 @@ export async function buildGuideContext(
 ): Promise<GuideContext> {
   const { data: profileRow } = await supabase
     .from('profiles')
-    .select('name, age, conditions, sodium_target, step_target, guide_permissions')
+    .select('name, age, conditions, sodium_target, step_target, guide_permissions, timezone')
     .eq('id', userId)
     .maybeSingle()
 
@@ -126,6 +126,7 @@ export async function buildGuideContext(
     sodium_target?: number | null
     step_target?: number | null
     guide_permissions?: string[] | null
+    timezone?: string | null
   }
 
   const rawPerms = Array.isArray(profile.guide_permissions)
@@ -153,7 +154,10 @@ export async function buildGuideContext(
   }
 
   const sevenDaysAgo = sevenDaysAgoISO()
-  const todayStart = startOfTodayISO()
+  // "Today" follows the person's own timezone, not the server's clock.
+  const timezone = typeof profile.timezone === 'string' && profile.timezone ? profile.timezone : null
+  const todayStart = zonedDayBounds(timezone).startIso
+  const sevenDaysAgoDate = zonedDate(timezone, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
 
   // ---- blood pressure (7 days) ----
   let recentBp: BpReading[] = []
@@ -242,6 +246,7 @@ export async function buildGuideContext(
   // ---- food (today) ----
   let todayFood: FoodItemSummary[] = []
   let todaySodiumMg = 0
+  let unknownSodiumCount = 0
   if (allowed('food')) {
     const { data } = await supabase
       .from('food_records')
@@ -250,13 +255,23 @@ export async function buildGuideContext(
       .gte('logged_at', todayStart)
       .order('logged_at', { ascending: true })
     todayFood = (data ?? []) as FoodItemSummary[]
-    todaySodiumMg = todayFood.reduce((sum, f) => sum + (f.sodium_mg || 0), 0)
+    // UNKNOWN IS NOT YES: meals with unknown sodium are reported as unknown
+    // and excluded from the total — never silently counted as 0.
+    const known = todayFood.filter((f) => f.sodium_mg != null)
+    unknownSodiumCount = todayFood.length - known.length
+    todaySodiumMg = known.reduce((sum, f) => sum + (f.sodium_mg || 0), 0)
     if (todayFood.length === 0) {
       observed.push('No meals logged today.')
     } else {
+      const mealBits = todayFood.map((f) =>
+        f.sodium_mg != null ? `${f.meal_name} (${f.sodium_mg} mg sodium)` : `${f.meal_name} (sodium unknown)`
+      )
       observed.push(
-        `Today's meals: ${todayFood.map((f) => `${f.meal_name} (${f.sodium_mg || 0} mg sodium)`).join(', ')}. ` +
-          `Total sodium so far today: ${todaySodiumMg} mg of a ${sodiumTargetMg} mg daily target.`
+        `Today's meals: ${mealBits.join(', ')}. ` +
+          `Total sodium so far today: ${todaySodiumMg} mg of a ${sodiumTargetMg} mg daily target` +
+          (unknownSodiumCount > 0
+            ? ` (${unknownSodiumCount} meal${unknownSodiumCount === 1 ? '' : 's'} with unknown sodium not counted).`
+            : '.')
       )
     }
   }
@@ -269,7 +284,7 @@ export async function buildGuideContext(
       .from('daily_metrics')
       .select('date, steps, walking_minutes, sleep_hours')
       .eq('user_id', userId)
-      .gte('date', sevenDaysAgo.slice(0, 10))
+      .gte('date', sevenDaysAgoDate)
       .order('date', { ascending: false })
     const rows = (data ?? []) as {
       date: string
@@ -355,11 +370,13 @@ export async function buildGuideContext(
     todayMedLogs,
     todayFood,
     todaySodiumMg,
+    unknownSodiumCount,
     sodiumTargetMg,
     stepTarget,
     recentSteps,
     recentSleep,
     todayStress,
     hasCravingHistory,
+    timezone,
   }
 }

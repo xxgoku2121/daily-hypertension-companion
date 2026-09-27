@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import {
   api,
   useProfile,
-  textSizeClass,
   PageHeader,
   Card,
   SectionTitle,
@@ -109,7 +108,7 @@ export default function CaregiversPage() {
   }
 
   return (
-    <main className={`mx-auto max-w-3xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className="mx-auto max-w-3xl px-4 py-8">
       <PageHeader
         title="Caregivers"
         subtitle="Choose who can see your health information, and exactly what they can see. Every change is recorded below."

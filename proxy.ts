@@ -37,7 +37,9 @@ export async function proxy(request: NextRequest) {
     // that exchanges the email-confirmation code FOR a session.
     request.nextUrl.pathname === '/auth/callback'
 
-  if (!user && !isAuthPage && request.nextUrl.pathname !== '/') {
+  const isApi = request.nextUrl.pathname.startsWith('/api/')
+
+  if (!user && !isAuthPage && !isApi && request.nextUrl.pathname !== '/') {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

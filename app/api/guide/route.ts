@@ -15,6 +15,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildGuideContext, type GuideContext } from '@/lib/guide-context'
 import { getTodayPlan } from '@/lib/today-plan'
+import { zonedMinutes, zonedDate } from '@/lib/day'
 import type { EvidenceSource } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -263,15 +264,26 @@ function medDisplayName(m: { name: string; dose: string | null }): string {
   return `${m.name}${m.dose ? ` ${m.dose}` : ''}`
 }
 
-function todaysTakenLogIds(ctx: GuideContext): Set<string> {
-  return new Set(
-    ctx.todayMedLogs.filter((l) => l.status === 'taken').map((l) => l.medication_id)
-  )
+/** Expected doses per day from the frequency text. Defaults to 1 — never guesses more. */
+function dosesPerDay(frequency: string | null | undefined): number {
+  const freq = (frequency || '').toLowerCase()
+  if (freq.includes('twice')) return 2
+  if (freq.includes('three')) return 3
+  return 1
 }
 
+function takenCountFor(ctx: GuideContext, medId: string): number {
+  return ctx.todayMedLogs.filter((l) => l.medication_id === medId && l.status === 'taken').length
+}
+
+/** Medicines that still have doses due today — dose-aware, not binary per medicine. */
 function untakenMeds(ctx: GuideContext) {
-  const taken = todaysTakenLogIds(ctx)
-  return ctx.activeMedications.filter((m) => !taken.has(m.id))
+  return ctx.activeMedications.filter((m) => takenCountFor(ctx, m.id) < dosesPerDay(m.frequency))
+}
+
+/** Current hour (0-23) in the person's own timezone — never the server's clock. */
+function userHour(ctx: GuideContext): number {
+  return Math.floor(zonedMinutes(ctx.timezone) / 60)
 }
 
 /**
@@ -283,13 +295,16 @@ function untakenMeds(ctx: GuideContext) {
  * nudge -> honestly caught up.
  */
 function computeNextStep(ctx: GuideContext): { text: string; medId: string | null } {
-  const hour = new Date().getHours()
+  const hour = userHour(ctx)
   const due = untakenMeds(ctx)
 
   if (due.length > 0) {
     const med = due[0]
+    const expected = dosesPerDay(med.frequency)
+    const taken = takenCountFor(ctx, med.id)
+    const doseBit = expected > 1 ? ` (dose ${taken + 1} of ${expected})` : ''
     return {
-      text: `Your next step is to take ${medDisplayName(med)}.`,
+      text: `Your next step is to take ${medDisplayName(med)}${doseBit}.`,
       medId: med.id,
     }
   }
@@ -297,26 +312,11 @@ function computeNextStep(ctx: GuideContext): { text: string; medId: string | nul
   // Only suggest BP readings when the person shares blood pressure data.
   const bpAllowed = ctx.permissions.includes('blood_pressure')
 
-  const hasMorning = ctx.recentBp.some((r) => {
-    const d = new Date(r.measured_at)
-    const now = new Date()
-    return (
-      r.period === 'morning' &&
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    )
-  })
-  const hasEvening = ctx.recentBp.some((r) => {
-    const d = new Date(r.measured_at)
-    const now = new Date()
-    return (
-      r.period === 'evening' &&
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    )
-  })
+  // "Today" in the person's timezone — the server's calendar day can differ.
+  const todayStr = zonedDate(ctx.timezone)
+  const isToday = (iso: string) => zonedDate(ctx.timezone, new Date(iso)) === todayStr
+  const hasMorning = ctx.recentBp.some((r) => r.period === 'morning' && isToday(r.measured_at))
+  const hasEvening = ctx.recentBp.some((r) => r.period === 'evening' && isToday(r.measured_at))
   if (bpAllowed && !hasMorning && hour < 12) {
     return { text: 'Your next step is to take your morning blood pressure reading.', medId: null }
   }
@@ -343,8 +343,8 @@ async function handleIntents(
   // 1) log a BP reading
   if (intents.logBp) {
     const { systolic, diastolic } = intents.logBp
-    const hour = new Date().getHours()
-    const period = hour < 12 ? 'morning' : 'evening'
+    // Same default as the BP page: morning before noon in the person's timezone.
+    const period = userHour(ctx) < 12 ? 'morning' : 'evening'
     const proposal = await proposeAction(
       supabase,
       userId,
@@ -361,28 +361,38 @@ async function handleIntents(
 
   // 2) mark medication taken
   if (intents.medTaken) {
-    const untaken = untakenMeds(ctx)
+    const medsAllowed = ctx.permissions.includes('medication')
+    if (!medsAllowed) {
+      return {
+        reply: `${greet}I can't see your medications right now — that permission is off. Turn on "Medications" under Settings → Health Guide if you'd like me to help with them.`,
+        proposals: [],
+      }
+    }
     if (ctx.activeMedications.length === 0) {
       return {
         reply: `${greet}you don't have any medications listed in the app yet, so there's nothing to mark. If you'd like, tell me the name and dose and I can help you add it.`,
         proposals: [],
       }
     }
+    const untaken = untakenMeds(ctx)
     if (untaken.length === 0) {
       return {
-        reply: `Looks like you've already marked your medicine as taken today. Well done staying on track.`,
+        reply: `Looks like all of today's doses are already marked as taken. Well done staying on track.`,
         proposals: [],
       }
     }
     const proposals: ActionProposal[] = []
     for (const med of untaken) {
+      const expected = dosesPerDay(med.frequency)
+      const taken = takenCountFor(ctx, med.id)
+      const doseBit = expected > 1 ? ` (dose ${taken + 1} of ${expected})` : ''
       proposals.push(
         await proposeAction(
           supabase,
           userId,
           'mark_medication_taken',
-          `Mark ${medDisplayName(med)} as taken`,
-          `I'll record ${medDisplayName(med)} as taken right now.`,
+          `Mark ${medDisplayName(med)} as taken${doseBit}`,
+          `I'll record ${medDisplayName(med)} as taken${doseBit} right now.`,
           { medication_id: med.id }
         )
       )
@@ -439,17 +449,17 @@ async function handleIntents(
 
   // 5) reminder
   if (intents.reminder) {
+    // 5) reminder — one-time only. Repeating reminders are not offered because
+    // nothing in the app delivers them yet; promising "every day" would be a lie.
     const proposal = await proposeAction(
       supabase,
       userId,
       'create_reminder',
+      `Reminder: ${intents.reminder.label}`,
       intents.reminder.recurring
-        ? `Daily reminder: ${intents.reminder.label}`
-        : `Reminder: ${intents.reminder.label}`,
-      intents.reminder.recurring
-        ? `I'll remind you every day: "${intents.reminder.label}".`
+        ? `I'll add "${intents.reminder.label}" to your reminders for today. (Repeating reminders aren't available yet.)`
         : `I'll remind you: "${intents.reminder.label}".`,
-      { label: intents.reminder.label, recurring: intents.reminder.recurring }
+      { label: intents.reminder.label, recurring: false }
     )
     return {
       reply: `I've prepared that reminder. Confirm below and I'll set it up.`,
@@ -604,7 +614,8 @@ async function askOpenAI(
         : []
       return { reply: parsed.reply.trim(), evidence_ids: ids }
     }
-    if (text.trim()) return { reply: text.trim(), evidence_ids: [] }
+    // Unparseable model output is never shown raw (it is often a JSON-shaped
+    // blob) — fall through to the rule-based reply below.
     return null
   } catch {
     return null
@@ -845,9 +856,10 @@ export async function GET() {
         .from('ai_messages')
         .select('id, role, content, created_at')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(50)
-      messages = (data ?? []) as typeof messages
+      // Latest 50, back in chronological order for display.
+      messages = ((data ?? []) as typeof messages).reverse()
     }
 
     const [{ data: meds }, { data: habits }] = await Promise.all([

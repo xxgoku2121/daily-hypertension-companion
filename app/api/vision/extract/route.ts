@@ -88,6 +88,35 @@ function safeJsonParse(text: string): Record<string, unknown> | null {
   }
 }
 
+/** Server-side sanity check on extracted values. The prompt states bounds, but
+ *  nothing enforces them — a hallucinated systolic of 1400 must not reach the
+ *  confirm screen as ok:true. Nulls (unreadable) are always acceptable. */
+function saneExtract(kind: Kind, data: Record<string, unknown>): boolean {
+  const num = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+  const inRange = (v: unknown, lo: number, hi: number): boolean => {
+    const n = num(v)
+    return n === null || (n >= lo && n <= hi)
+  }
+  if (kind === 'bp') {
+    const sys = num(data.systolic)
+    const dia = num(data.diastolic)
+    if (sys !== null && dia !== null && sys <= dia) return false
+    return (
+      inRange(data.systolic, 70, 260) &&
+      inRange(data.diastolic, 40, 150) &&
+      inRange(data.pulse, 30, 200)
+    )
+  }
+  // medicine / food: values must be sane primitives, never nested blobs.
+  for (const v of Object.values(data)) {
+    if (v !== null && typeof v !== 'string' && typeof v !== 'number' && typeof v !== 'boolean') {
+      return false
+    }
+  }
+  return true
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -169,7 +198,7 @@ export async function POST(request: Request) {
     const json = await res.json()
     const text: string = json?.choices?.[0]?.message?.content ?? ''
     const data = safeJsonParse(text)
-    if (!data) {
+    if (!data || !saneExtract(kind, data)) {
       return NextResponse.json({
         ok: false,
         reason: 'ai-error',

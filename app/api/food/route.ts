@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { zonedDayBounds, zonedDayBoundsForDate } from '@/lib/day'
 
 async function authed() {
   const supabase = await createClient()
@@ -9,22 +10,31 @@ async function authed() {
   return { supabase, user }
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 // GET ?date=YYYY-MM-DD -> { meals, total_sodium }
+// "Today" (and any ?date=) is interpreted in the person's own timezone —
+// the server's UTC day would show the wrong meals every evening.
 export async function GET(req: Request) {
   const { supabase, user } = await authed()
   if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
 
-  const date = new URL(req.url).searchParams.get('date') || today()
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const tz = (prof as { timezone?: string | null } | null)?.timezone ?? null
+
+  const param = new URL(req.url).searchParams.get('date')
+  const bounds =
+    (param ? zonedDayBoundsForDate(tz, param) : null) ?? zonedDayBounds(tz)
+  const { date, startIso, endIso } = bounds
+
   const { data, error } = await supabase
     .from('food_records')
     .select('*')
     .eq('user_id', user.id)
-    .gte('logged_at', `${date}T00:00:00`)
-    .lt('logged_at', `${date}T23:59:59.999`)
+    .gte('logged_at', startIso)
+    .lte('logged_at', endIso)
     .order('logged_at', { ascending: false })
   if (error) return NextResponse.json({ error: 'Could not load meals.' }, { status: 500 })
 
