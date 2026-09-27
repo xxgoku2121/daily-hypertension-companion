@@ -480,11 +480,35 @@ create policy "evidence_read" on public.evidence_sources for select
 -- seed default safety rule note: per-user rows are created by the app on signup
 -- seed evidence sources (AHA/CDC/NHLBI/Mayo)
 insert into public.evidence_sources (topic, claim, source_name, source_title, source_url, evidence_type, published_date, last_verified, status) values
-('blood_pressure','Normal blood pressure is less than 120/80 mmHg.','American Heart Association','Understanding Blood Pressure Readings','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings','guideline','2024-01-01','2026-09-27','active'),
-('blood_pressure','High blood pressure is 130/80 mmHg or higher.','American Heart Association','Understanding Blood Pressure Readings','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings','guideline','2024-01-01','2026-09-27','active'),
-('blood_pressure','A hypertensive crisis (over 180/120) needs prompt medical attention, especially with symptoms.','American Heart Association','Understanding Blood Pressure Readings','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings','guideline','2024-01-01','2026-09-27','active'),
-('sodium','Adults should limit sodium to less than 2,300 mg per day; moving toward 1,500 mg can further help blood pressure.','American Heart Association','How Much Sodium Per Day?','https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/sodium/how-much-sodium-per-day','guideline','2024-01-01','2026-09-27','active'),
-('activity','Adults should get at least 150 minutes of moderate-intensity aerobic activity per week.','CDC','Physical Activity Guidelines','https://www.cdc.gov/physical-activity/php/guidelines/index.html','guideline','2024-01-01','2026-09-27','active'),
-('lifestyle','The DASH eating pattern can help lower blood pressure.','NHLBI','DASH Eating Plan','https://www.nhlbi.nih.gov/education/dash-eating-plan','guideline','2024-01-01','2026-09-27','active'),
-('smoking','Smoking raises blood pressure temporarily and quitting lowers cardiovascular risk.','CDC','Smoking and Tobacco Use','https://www.cdc.gov/tobacco/about/index.html','guideline','2024-01-01','2026-09-27','active'),
-('measurement','Measure BP while seated with back supported, feet flat, arm at heart level, after resting 5 minutes.','American Heart Association','Monitoring Your Blood Pressure at Home','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings/monitoring-your-blood-pressure-at-home','guideline','2024-01-01','2026-09-27','active');
+('blood_pressure','Normal blood pressure is less than 120/80 mmHg.','American Heart Association','Understanding Blood Pressure Readings','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings','guideline','2024-01-01'::date,'2026-09-27'::date,'active'),
+('blood_pressure','High blood pressure is 130/80 mmHg or higher.','American Heart Association','Understanding Blood Pressure Readings','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings','guideline','2024-01-01'::date,'2026-09-27'::date,'active'),
+('blood_pressure','A hypertensive crisis (over 180/120) needs prompt medical attention, especially with symptoms.','American Heart Association','Understanding Blood Pressure Readings','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings','guideline','2024-01-01'::date,'2026-09-27'::date,'active'),
+('sodium','Adults should limit sodium to less than 2,300 mg per day; moving toward 1,500 mg can further help blood pressure.','American Heart Association','How Much Sodium Per Day?','https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/sodium/how-much-sodium-per-day','guideline','2024-01-01'::date,'2026-09-27'::date,'active'),
+('activity','Adults should get at least 150 minutes of moderate-intensity aerobic activity per week.','CDC','Physical Activity Guidelines','https://www.cdc.gov/physical-activity/php/guidelines/index.html','guideline','2024-01-01'::date,'2026-09-27'::date,'active'),
+('lifestyle','The DASH eating pattern can help lower blood pressure.','NHLBI','DASH Eating Plan','https://www.nhlbi.nih.gov/education/dash-eating-plan','guideline','2024-01-01'::date,'2026-09-27'::date,'active'),
+('smoking','Smoking raises blood pressure temporarily and quitting lowers cardiovascular risk.','CDC','Smoking and Tobacco Use','https://www.cdc.gov/tobacco/about/index.html','guideline','2024-01-01'::date,'2026-09-27'::date,'active'),
+('measurement','Measure BP while seated with back supported, feet flat, arm at heart level, after resting 5 minutes.','American Heart Association','Monitoring Your Blood Pressure at Home','https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings/monitoring-your-blood-pressure-at-home','guideline','2024-01-01'::date,'2026-09-27'::date,'active');
+-- 002: explicit nicotine-use opt-in for the habits page.
+-- Stored separately so the app can NEVER infer nicotine use.
+-- UNKNOWN (null) is not consent: habits craving support only shows when
+-- this is set to 'sometimes'/'yes' or when habit_records exist.
+alter table public.life_profiles
+  add column if not exists nicotine_status text
+  check (nicotine_status in ('no','sometimes','yes','prefer_not'));
+-- User feedback / feature suggestions
+create table public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  category text not null default 'suggestion'
+    check (category in ('suggestion','problem','praise','other')),
+  message text not null check (char_length(message) between 1 and 2000),
+  page text,
+  created_at timestamptz default now()
+);
+
+alter table public.feedback enable row level security;
+
+create policy "owner_insert" on public.feedback for insert
+  with check (auth.uid() = user_id);
+create policy "owner_read" on public.feedback for select
+  using (auth.uid() = user_id);
