@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useTheme } from '@/lib/theme'
+import type { Appearance, TextSize } from '@/lib/types'
 import {
   api,
   useSaved,
@@ -42,6 +44,7 @@ const GUIDE_PERMISSIONS = [
 export default function SettingsPage() {
   const profile = useProfile()
   const saved = useSaved()
+  const theme = useTheme()
   const [form, setForm] = useState<Record<string, any> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -84,6 +87,10 @@ export default function SettingsPage() {
       })
       setForm({ ...r.profile })
       saved.show()
+      // Drive the live theme as well — saving to the DB alone doesn't repaint.
+      if (field === 'appearance') theme.setAppearance(value as Appearance)
+      else if (field === 'text_size') theme.setTextSize(value as TextSize)
+      else if (field === 'reduce_motion') theme.setReduceMotion(value as boolean)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save. Please try again.')
     } finally {

@@ -99,16 +99,33 @@ export function ThemeProvider({
     writeCache(prefs)
   }, [prefs])
 
-  // If the server later provides different prefs (e.g. changed on another
-  // device) and there is no local cache, adopt them.
+  // The database is the source of truth. If the server-provided prefs differ
+  // from what the local cache resolved to (changed on another device, or
+  // saved before settings applied themes live), adopt the server values so
+  // the saved choice actually takes effect. The prefs effect below then
+  // repaints the document and rewrites the cache.
   useEffect(() => {
     if (!initial) return
-    try {
-      if (localStorage.getItem(THEME_STORAGE_KEY)) return
-    } catch {
-      /* ignore */
-    }
-    setPrefs((p) => ({ ...p, ...initial }))
+    setPrefs((p) => {
+      const next = { ...p }
+      let changed = false
+      if (initial.appearance && initial.appearance !== p.appearance) {
+        next.appearance = initial.appearance
+        changed = true
+      }
+      if (initial.text_size && initial.text_size !== p.text_size) {
+        next.text_size = initial.text_size
+        changed = true
+      }
+      if (
+        typeof initial.reduce_motion === 'boolean' &&
+        initial.reduce_motion !== p.reduce_motion
+      ) {
+        next.reduce_motion = initial.reduce_motion
+        changed = true
+      }
+      return changed ? next : p
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

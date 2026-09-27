@@ -23,7 +23,8 @@ export default async function RootLayout({
 }: {
   children: ReactNode
 }) {
-  // Server-provided theme defaults (used when there is no local cache).
+  // Server-provided theme prefs (authoritative: the provider adopts them
+  // when they differ from the local cache).
   type ThemeInitial = {
     appearance?: 'system' | 'light' | 'blue' | 'dark' | 'high_contrast'
     text_size?: 'normal' | 'large' | 'extra_large'
