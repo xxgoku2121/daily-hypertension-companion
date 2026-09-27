@@ -27,7 +27,7 @@ export default async function GetHelpPage() {
 
       <a
         href="tel:911"
-        className="mt-6 block rounded-2xl bg-danger px-6 py-5 text-center text-2xl font-bold text-white"
+        className="mt-6 block rounded-2xl bg-danger px-6 py-5 text-center text-2xl font-bold text-on-danger"
       >
         Call 911 Now
       </a>

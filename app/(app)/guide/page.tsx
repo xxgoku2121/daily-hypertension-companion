@@ -42,6 +42,9 @@ interface GuideMeta {
   name: string | null
   has_medications: boolean
   has_craving_history: boolean
+  bp_pending: boolean
+  meds_pending_today: number
+  appointment_today: boolean
 }
 
 // Minimal Web Speech API typing (feature-detected at runtime).
@@ -308,10 +311,31 @@ export default function GuidePage() {
 
   const firstName = meta?.name ? meta.name.split(' ')[0] : null
 
+  // Suggestion chips that reflect today's real state — never static noise.
+  const chips: { label: string; message: string }[] = [
+    { label: 'What should I do now?', message: 'What should I do now?' },
+  ]
+  if (meta?.bp_pending) {
+    chips.push({ label: 'Explain my latest BP reading', message: 'Can you explain my latest blood pressure reading?' })
+  }
+  if ((meta?.meds_pending_today ?? 0) > 0) {
+    chips.push({ label: 'I took my medicine', message: 'I took my medicine' })
+  }
+  if (meta?.appointment_today) {
+    chips.push({ label: 'Prepare me for my appointment', message: 'Help me prepare for my appointment today' })
+  }
+  if (meta?.has_craving_history === true) {
+    chips.push({ label: 'I want craving help', message: 'I need help with a craving' })
+  }
+
+  const freshConversation = !loading && messages.length === 0
+
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-4">
       <header>
-        <h1 className="text-3xl font-bold text-[var(--text-primary)]">AI Chat</h1>
+        <h1 className="text-3xl font-bold text-[var(--text-primary)]">Health Guide</h1>
         <p className="mt-1 text-lg text-[var(--text-secondary)]">
           {firstName
             ? `Hi ${firstName} — ask your Health Guide anything about your health, in your own words.`
@@ -329,13 +353,46 @@ export default function GuidePage() {
         {loading && (
           <p className="text-lg text-[var(--text-secondary)]">Loading your conversation…</p>
         )}
-        {!loading && messages.length === 0 && (
+        {freshConversation && (
           <div className="text-lg text-[var(--text-secondary)]">
             <p className="font-semibold text-[var(--text-primary)]">Welcome to your Health Guide.</p>
             <p className="mt-2">
-              I can help you figure out your next step, answer blood pressure questions, and
-              handle medicines and reminders. You can also send a photo — for example of a
-              meal or a medicine label. Try one of the suggestions below, or just type.
+              I know your routine — your medicines, your readings, your appointments — so
+              you can talk to me like a person, not a search box. I can look at photos,
+              set reminders, and log things for you. I always ask before saving anything
+              important.
+            </p>
+            <p className="mt-4 font-semibold text-[var(--text-primary)]">Try one of these:</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {[
+                { icon: '📷', title: 'Read my BP monitor', kind: 'photo' as const, caption: 'What does my blood pressure monitor show?' },
+                { icon: '💊', title: 'Add a medicine from its label', kind: 'photo' as const, caption: 'I want to add this medicine from its label' },
+                { icon: '🍽️', title: 'Check a meal', kind: 'photo' as const, caption: 'Can you look at my meal and help me keep sodium low?' },
+                { icon: '💬', title: 'Just talk', kind: 'text' as const, caption: 'What should I do now?' },
+              ].map((s) => (
+                <button
+                  key={s.title}
+                  type="button"
+                  onClick={() => {
+                    if (sending) return
+                    if (s.kind === 'photo') {
+                      setInput(s.caption)
+                      fileInputRef.current?.click()
+                    } else {
+                      sendMessage(s.caption)
+                    }
+                  }}
+                  disabled={sending}
+                  className="flex min-h-[64px] items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left text-lg font-medium text-[var(--text-primary)] hover:border-[var(--primary)] disabled:opacity-50"
+                >
+                  <span className="text-2xl" aria-hidden="true">{s.icon}</span>
+                  {s.title}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-base">
+              Tapping a photo suggestion opens your camera or photo library — the caption is
+              filled in for you, just press Send after picking the photo.
             </p>
           </div>
         )}
@@ -465,35 +522,22 @@ export default function GuidePage() {
         </p>
       )}
 
-      {/* quick-action chips */}
-      <div className="flex flex-wrap gap-2" aria-label="Quick actions">
-        <button
-          type="button"
-          onClick={() => sendMessage('What should I do now?')}
-          disabled={sending}
-          className="min-h-[48px] rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 text-lg font-medium text-[var(--text-primary)] disabled:opacity-50"
-        >
-          What should I do now?
-        </button>
-        <button
-          type="button"
-          onClick={() => sendMessage('I took my medicine')}
-          disabled={sending}
-          className="min-h-[48px] rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 text-lg font-medium text-[var(--text-primary)] disabled:opacity-50"
-        >
-          I took my medicine
-        </button>
-        {meta?.has_craving_history === true && (
-          <button
-            type="button"
-            onClick={() => sendMessage('I need help with a craving')}
-            disabled={sending}
-            className="min-h-[48px] rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 text-lg font-medium text-[var(--text-primary)] disabled:opacity-50"
-          >
-            I want craving help
-          </button>
-        )}
-      </div>
+      {/* suggestion chips — driven by today's real state */}
+      {!freshConversation && (
+        <div className="flex flex-wrap gap-2" aria-label="Suggestions">
+          {chips.map((c) => (
+            <button
+              key={c.label}
+              type="button"
+              onClick={() => sendMessage(c.message)}
+              disabled={sending}
+              className="min-h-[48px] rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 text-lg font-medium text-[var(--text-primary)] disabled:opacity-50"
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* photo preview */}
       {photo && (
@@ -572,7 +616,7 @@ export default function GuidePage() {
             title={listening ? 'Stop listening' : 'Speak instead of typing'}
             className={`flex min-h-[56px] min-w-[56px] items-center justify-center rounded-2xl border text-2xl ${
               listening
-                ? 'border-[var(--danger)] bg-[var(--danger)] text-white'
+                ? 'border-[var(--danger)] bg-[var(--danger)] text-[var(--on-danger)]'
                 : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]'
             }`}
           >
@@ -592,6 +636,71 @@ export default function GuidePage() {
           Listening… speak now.
         </p>
       )}
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <aside className="flex flex-col gap-4" aria-label="About your Health Guide">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h2 className="text-lg font-bold uppercase tracking-wide text-[var(--text-secondary)]">
+              What I can do
+            </h2>
+            <ul className="mt-3 flex flex-col gap-3 text-lg text-[var(--text-primary)]">
+              <li className="flex gap-3">
+                <span aria-hidden="true">📷</span>
+                <span>Read photos — your BP monitor, a medicine label, a meal.</span>
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true">🎙️</span>
+                <span>Listen to your voice instead of typing.</span>
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true">✅</span>
+                <span>Log readings, medicines, and reminders — always with your confirmation first.</span>
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true">📚</span>
+                <span>Explain health questions with sources you can check.</span>
+              </li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h2 className="text-lg font-bold uppercase tracking-wide text-[var(--text-secondary)]">
+              Your privacy
+            </h2>
+            <p className="mt-3 text-lg text-[var(--text-primary)]">
+              You control what I may see and remember. Your conversation stays yours.
+            </p>
+            <a
+              href="/settings"
+              className="mt-3 inline-block min-h-[48px] rounded-xl border-2 border-[var(--primary)] px-5 py-2 text-lg font-bold text-[var(--primary)]"
+            >
+              Manage data permissions
+            </a>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h2 className="text-lg font-bold uppercase tracking-wide text-[var(--text-secondary)]">
+              Shortcuts
+            </h2>
+            <div className="mt-3 flex flex-col gap-2">
+              {[
+                { href: '/bp', label: 'Log blood pressure' },
+                { href: '/medications', label: 'My medicines' },
+                { href: '/appointments', label: 'My appointments' },
+                { href: '/get-help', label: 'Get help now' },
+              ].map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  className="flex min-h-[52px] items-center justify-between rounded-xl bg-[var(--surface-secondary)] px-4 text-lg font-semibold text-[var(--text-primary)]"
+                >
+                  {l.label}
+                  <span aria-hidden="true">›</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }

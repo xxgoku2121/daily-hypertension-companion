@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
   api,
   useProfile,
@@ -9,7 +10,6 @@ import {
   Card,
   SectionTitle,
   Field,
-  EmptyState,
   ErrorNote,
   PrintStyles,
   fmtDateTime,
@@ -40,6 +40,19 @@ interface Snapshot {
 
 function avg(nums: number[]) {
   return nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) : null
+}
+
+/** Friendly countdown: "Today", "Tomorrow", "In 3 days", or a date. */
+function countdown(dateTime: string): string {
+  const now = new Date()
+  const then = new Date(dateTime)
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfThen = new Date(then.getFullYear(), then.getMonth(), then.getDate())
+  const days = Math.round((startOfThen.getTime() - startOfToday.getTime()) / 86400000)
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  if (days < 7) return `In ${days} days`
+  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 function VisitSummary({ appt }: { appt: Appointment }) {
@@ -218,7 +231,7 @@ export default function AppointmentsPage() {
   const within48h = upcoming.filter((a) => new Date(a.date_time).getTime() - now <= 48 * 3600 * 1000)
 
   return (
-    <main className={`mx-auto max-w-3xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
       <PrintStyles />
       <PageHeader
         title="Appointments"
@@ -268,18 +281,33 @@ export default function AppointmentsPage() {
       {loading ? (
         <p className="text-text-secondary">Loading…</p>
       ) : (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-8">
           <section>
             <SectionTitle>Upcoming ({upcoming.length})</SectionTitle>
             {upcoming.length === 0 ? (
-              <EmptyState>No upcoming appointments.</EmptyState>
+              <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
+                <p className="text-4xl" aria-hidden="true">📅</p>
+                <p className="mt-2 text-xl font-bold text-text-primary">No upcoming appointments</p>
+                <p className="mt-1 text-lg text-text-secondary">
+                  Add your next visit and we&apos;ll help you prepare — a report, your questions, and your medicine list.
+                </p>
+                <button className={`${btnPrimary} mt-4`} onClick={() => setShowForm(true)}>
+                  + Add appointment
+                </button>
+              </div>
             ) : (
               <div className="space-y-4">
                 {upcoming.map((a) => (
                   <Card key={a.id}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-lg font-bold text-text-primary">{a.title}</p>
+                        <p className="text-lg font-bold text-text-primary">
+                          {a.title}{' '}
+                          <span className="ml-1 inline-block rounded-full bg-primary/10 px-3 py-1 text-base font-bold text-primary">
+                            {countdown(a.date_time)}
+                          </span>
+                        </p>
                         <p className="text-text-secondary">{fmtDateTime(a.date_time)}</p>
                         {a.doctor && <p className="text-text-secondary">With {a.doctor}</p>}
                         {a.location && <p className="text-text-secondary">{a.location}</p>}
@@ -313,6 +341,37 @@ export default function AppointmentsPage() {
               </div>
             </section>
           )}
+        </div>
+
+        {/* RIGHT COLUMN: preparation */}
+        <aside className="space-y-6 no-print" aria-label="Prepare for your visit">
+          {upcoming.length > 0 && (
+            <Card>
+              <SectionTitle>Next visit</SectionTitle>
+              <p className="text-xl font-bold text-text-primary">{upcoming[0].title}</p>
+              <p className="mt-1 text-lg text-primary font-bold">{countdown(upcoming[0].date_time)}</p>
+              <p className="text-text-secondary">{fmtDateTime(upcoming[0].date_time)}</p>
+              {upcoming[0].location && <p className="text-text-secondary">{upcoming[0].location}</p>}
+            </Card>
+          )}
+          <Card>
+            <SectionTitle>Get ready</SectionTitle>
+            <div className="flex flex-col gap-2">
+              <Link href="/reports" className={`${btnSecondary} justify-center`}>
+                📄 Build a doctor report
+              </Link>
+              <Link href="/medications" className={`${btnSecondary} justify-center`}>
+                💊 Review my medicines
+              </Link>
+              <Link href="/guide" className={`${btnSecondary} justify-center`}>
+                💬 Ask the Health Guide
+              </Link>
+            </div>
+            <p className="mt-3 text-sm text-text-secondary">
+              Bring your report, your medicine list, and any questions — that covers most of what a doctor needs.
+            </p>
+          </Card>
+        </aside>
         </div>
       )}
     </main>

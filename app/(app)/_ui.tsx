@@ -104,7 +104,7 @@ export const btnSecondary =
   'inline-flex items-center justify-center rounded-xl border border-border bg-surface px-5 py-3 font-semibold text-text-primary hover:bg-surface-secondary disabled:opacity-50'
 
 export const btnDanger =
-  'inline-flex items-center justify-center rounded-xl bg-danger px-5 py-3 font-semibold text-white hover:bg-danger disabled:opacity-50'
+  'inline-flex items-center justify-center rounded-xl bg-danger px-5 py-3 font-semibold text-on-danger hover:bg-danger disabled:opacity-50'
 
 export function Toggle({
   checked,

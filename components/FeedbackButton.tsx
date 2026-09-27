@@ -44,7 +44,10 @@ export function FeedbackButton({
   }, [])
 
   // Keep setup focused: no feedback entry point during onboarding.
+  // On the Health Guide page the floating pill would sit on top of the
+  // chat input, so hide it there — the conversation itself is the channel.
   if (pathname === '/onboarding') return null
+  if (variant === 'floating' && pathname === '/guide') return null
 
   const openModal = () => {
     setStatus('idle')

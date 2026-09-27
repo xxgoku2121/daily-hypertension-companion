@@ -27,8 +27,11 @@ export async function GET(req: Request) {
   return NextResponse.json({ metrics: data ?? [] })
 }
 
-// PATCH {date, steps?, walking_minutes?, sleep_hours?, bedtime?, wake_time?}
+// PATCH {date, steps?, walking_minutes?, sleep_hours?, sleep_quality?, bedtime?, wake_time?}
 // Upserts the day's row; merges numbers (walking_minutes adds, others overwrite).
+// NOTE: the `walking_minutes` column stores ALL movement minutes for the day —
+// the walk timer plus every other logged activity (gardening, housework, ...).
+// User-facing text says "movement", never "walking", for this reason.
 export async function PATCH(req: Request) {
   const { supabase, user } = await authed()
   if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
@@ -49,6 +52,10 @@ export async function PATCH(req: Request) {
     row.walking_minutes =
       (existing?.walking_minutes || 0) + Math.max(0, Math.round(Number(body.walking_minutes) || 0))
   if (body.sleep_hours !== undefined) row.sleep_hours = Number(body.sleep_hours) || null
+  if (body.sleep_quality !== undefined) {
+    const q = String(body.sleep_quality)
+    row.sleep_quality = ['rested', 'okay', 'restless'].includes(q) ? q : null
+  }
   if (body.bedtime !== undefined) row.bedtime = body.bedtime || null
   if (body.wake_time !== undefined) row.wake_time = body.wake_time || null
 

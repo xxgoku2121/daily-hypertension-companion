@@ -32,7 +32,10 @@ export async function proxy(request: NextRequest) {
 
   const isAuthPage =
     request.nextUrl.pathname === '/login' ||
-    request.nextUrl.pathname === '/signup'
+    request.nextUrl.pathname === '/signup' ||
+    // /auth/callback must be reachable without a session: it is the route
+    // that exchanges the email-confirmation code FOR a session.
+    request.nextUrl.pathname === '/auth/callback'
 
   if (!user && !isAuthPage && request.nextUrl.pathname !== '/') {
     const url = request.nextUrl.clone()

@@ -10,14 +10,16 @@ async function authed() {
 }
 
 const NICOTINE = ['no', 'sometimes', 'yes', 'prefer_not']
+const MODULES = ['caffeine', 'alcohol', 'stress']
 
-// GET -> { nicotine_status, has_records, records, strategies }
+// GET -> { nicotine_status, routine_modules, has_records, records, strategies }
 export async function GET() {
   const { supabase, user } = await authed()
   if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
 
-  const [lp, hr, us] = await Promise.all([
+  const [lp, pr, hr, us] = await Promise.all([
     supabase.from('life_profiles').select('nicotine_status').eq('user_id', user.id).maybeSingle(),
+    supabase.from('profiles').select('routine_modules').eq('id', user.id).maybeSingle(),
     supabase
       .from('habit_records')
       .select('*')
@@ -34,40 +36,61 @@ export async function GET() {
 
   return NextResponse.json({
     nicotine_status: lp.data?.nicotine_status ?? null,
+    routine_modules: (pr.data?.routine_modules as string[] | null) ?? [],
     has_records: (hr.data ?? []).length > 0,
     records: hr.data ?? [],
     strategies: us.data ?? [],
   })
 }
 
-// PATCH {nicotine_status} — records the explicit opt-in answer.
+// PATCH {nicotine_status?} | {routine_modules?} — explicit opt-ins only.
 export async function PATCH(req: Request) {
   const { supabase, user } = await authed()
   if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
-  if (!NICOTINE.includes(body.nicotine_status))
-    return NextResponse.json({ error: 'That answer could not be saved.' }, { status: 400 })
+  const result: Record<string, unknown> = {}
 
-  const { data: existing } = await supabase
-    .from('life_profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (existing) {
+  if (body.routine_modules !== undefined) {
+    const mods = Array.isArray(body.routine_modules)
+      ? body.routine_modules.filter((m: unknown) => MODULES.includes(String(m)))
+      : []
     const { error } = await supabase
-      .from('life_profiles')
-      .update({ nicotine_status: body.nicotine_status })
-      .eq('id', existing.id)
-    if (error) return NextResponse.json({ error: 'Could not save your answer.' }, { status: 500 })
-  } else {
-    const { error } = await supabase
-      .from('life_profiles')
-      .insert({ user_id: user.id, nicotine_status: body.nicotine_status })
-    if (error) return NextResponse.json({ error: 'Could not save your answer.' }, { status: 500 })
+      .from('profiles')
+      .update({ routine_modules: mods })
+      .eq('id', user.id)
+    if (error) return NextResponse.json({ error: 'Could not save that.' }, { status: 500 })
+    result.routine_modules = mods
   }
-  return NextResponse.json({ nicotine_status: body.nicotine_status })
+
+  if (body.nicotine_status !== undefined) {
+    if (!NICOTINE.includes(body.nicotine_status))
+      return NextResponse.json({ error: 'That answer could not be saved.' }, { status: 400 })
+
+    const { data: existing } = await supabase
+      .from('life_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('life_profiles')
+        .update({ nicotine_status: body.nicotine_status })
+        .eq('id', existing.id)
+      if (error) return NextResponse.json({ error: 'Could not save your answer.' }, { status: 500 })
+    } else {
+      const { error } = await supabase
+        .from('life_profiles')
+        .insert({ user_id: user.id, nicotine_status: body.nicotine_status })
+      if (error) return NextResponse.json({ error: 'Could not save your answer.' }, { status: 500 })
+    }
+    result.nicotine_status = body.nicotine_status
+  }
+
+  if (Object.keys(result).length === 0)
+    return NextResponse.json({ error: 'Nothing to save.' }, { status: 400 })
+  return NextResponse.json(result)
 }
 
 // POST {kind, trigger?, strategy_used?, strategy_helped?, notes?}
@@ -77,7 +100,16 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}))
   const { kind, trigger, strategy_used, strategy_helped, notes } = body
-  if (!['smoking_event', 'craving_event', 'craving_resisted'].includes(kind))
+  if (
+    ![
+      'smoking_event',
+      'craving_event',
+      'craving_resisted',
+      'caffeine_log',
+      'alcohol_log',
+      'stress_checkin',
+    ].includes(kind)
+  )
     return NextResponse.json({ error: 'That could not be logged.' }, { status: 400 })
 
   const { data, error } = await supabase

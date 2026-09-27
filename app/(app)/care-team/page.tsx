@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
   api,
   useProfile,
@@ -17,6 +18,16 @@ import {
 } from '../_ui'
 
 const ROLES = ['Doctor', 'Pharmacist', 'Specialist', 'Nurse', 'Dentist', 'Therapist', 'Other']
+
+const ROLE_ICONS: Record<string, string> = {
+  Doctor: '🩺',
+  Pharmacist: '💊',
+  Specialist: '🔬',
+  Nurse: '🩹',
+  Dentist: '🦷',
+  Therapist: '🧠',
+  Other: '🤝',
+}
 
 interface Member {
   id: string
@@ -111,7 +122,7 @@ export default function CareTeamPage() {
   }
 
   return (
-    <main className={`mx-auto max-w-3xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
       <PageHeader
         title="Care team"
         subtitle="Your doctor, pharmacist, and everyone who looks after your health."
@@ -162,7 +173,10 @@ export default function CareTeamPage() {
 
       {loading ? (
         <p className="text-text-secondary">Loading…</p>
-      ) : members.length === 0 ? (
+      ) : (
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0">
+      {members.length === 0 ? (
         <EmptyState>
           <p className="font-semibold text-text-primary mb-1">No one here yet</p>
           <p>Add your doctor and pharmacist so their details are always handy.</p>
@@ -173,10 +187,19 @@ export default function CareTeamPage() {
             <Card key={m.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary">{m.role}</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                    <span aria-hidden="true" className="mr-1 text-base">{ROLE_ICONS[m.role] ?? ROLE_ICONS.Other}</span>
+                    {m.role}
+                  </p>
                   <p className="text-lg font-bold text-text-primary">{m.name}</p>
-                  {m.phone && <p className="text-text-primary"><a className="underline" href={`tel:${m.phone}`}>{m.phone}</a></p>}
-                  {m.address && <p className="text-text-secondary">{m.address}</p>}
+                  {m.phone && (
+                    <p className="mt-1">
+                      <a className={`${btnSecondary} no-underline`} href={`tel:${m.phone}`}>
+                        📞 Call {m.phone}
+                      </a>
+                    </p>
+                  )}
+                  {m.address && <p className="text-text-secondary mt-1">{m.address}</p>}
                   {m.notes && <p className="text-text-secondary mt-1">{m.notes}</p>}
                 </div>
                 <div className="flex gap-2">
@@ -187,6 +210,31 @@ export default function CareTeamPage() {
             </Card>
           ))}
         </div>
+      )}
+      </div>
+
+      {/* RIGHT COLUMN */}
+      <aside className="space-y-6" aria-label="About your care team">
+        <Card>
+          <SectionTitle>👪 Caregiver access</SectionTitle>
+          <p className="text-lg text-text-secondary">
+            A family member or caregiver can view your health summary and get safety alerts — only what you allow.
+          </p>
+          <Link href="/caregivers" className={`${btnSecondary} mt-3 justify-center`}>
+            Manage caregiver access
+          </Link>
+        </Card>
+        <Card>
+          <SectionTitle>🆘 In an emergency</SectionTitle>
+          <p className="text-lg text-text-secondary">
+            Call your local emergency number first. Your care team list is for routine contact, not emergencies.
+          </p>
+          <Link href="/get-help" className={`${btnSecondary} mt-3 justify-center`}>
+            Find help near me
+          </Link>
+        </Card>
+      </aside>
+      </div>
       )}
     </main>
   )

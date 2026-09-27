@@ -104,6 +104,12 @@ const ICON_PATHS: Record<string, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
   chevronRight: <path d="m9 5 7 7-7 7" />,
+  history: (
+    <>
+      <path d="M3.5 12a8.5 8.5 0 1 1 2.5 6" />
+      <path d="M3.5 12H7M3.5 12V8.5M12 8v4.5l3 2" />
+    </>
+  ),
   logout: (
     <>
       <path d="M14 4H6v16h8M10 12h11M18 8.5 21.5 12 18 15.5" />
@@ -156,9 +162,9 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   secondary:
     'bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--surface-secondary)]',
   danger:
-    'bg-[var(--danger)] text-white hover:brightness-110 border border-transparent',
+    'bg-[var(--danger)] text-[var(--on-danger)] hover:brightness-110 border border-transparent',
   success:
-    'bg-[var(--success)] text-white hover:brightness-110 border border-transparent',
+    'bg-[var(--success)] text-[var(--on-success)] hover:brightness-110 border border-transparent',
   ghost:
     'bg-transparent text-[var(--primary)] hover:bg-[var(--surface-secondary)] border border-transparent underline-offset-4 hover:underline',
 }
@@ -506,12 +512,13 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/food', label: 'Food', icon: 'food' },
       { href: '/sleep', label: 'Sleep', icon: 'moon' },
       { href: '/habits', label: 'Habits', icon: 'habits' },
+      { href: '/history', label: 'History', icon: 'history' },
     ],
   },
   {
     title: 'Support',
     items: [
-      { href: '/guide', label: 'AI Chat', icon: 'chat' },
+      { href: '/guide', label: 'Health Guide', icon: 'chat' },
       { href: '/appointments', label: 'Appointments', icon: 'calendar' },
       { href: '/reports', label: 'Reports', icon: 'report' },
     ],
@@ -530,7 +537,7 @@ const BOTTOM_NAV: NavItem[] = [
   { href: '/home', label: 'Home', icon: 'home' },
   { href: '/bp', label: 'BP', icon: 'heart' },
   { href: '/medications', label: 'Medicine', icon: 'pill' },
-  { href: '/guide', label: 'AI Chat', icon: 'chat' },
+  { href: '/guide', label: 'Health Guide', icon: 'chat' },
 ]
 
 function NavLink({
@@ -609,7 +616,7 @@ function SidebarContent({
         <Link
           href="/get-help"
           onClick={onNavigate}
-          className="flex min-h-[var(--tap-target)] items-center justify-center gap-2 rounded-[var(--radius)] bg-[var(--danger)] px-4 text-lg font-bold text-white hover:brightness-110"
+          className="flex min-h-[var(--tap-target)] items-center justify-center gap-2 rounded-[var(--radius)] bg-[var(--danger)] px-4 text-lg font-bold text-[var(--on-danger)] hover:brightness-110"
         >
           <Icon name="help" className="h-6 w-6" />
           Get Help
@@ -657,13 +664,29 @@ export function AppShell({
         const supabase = createClient()
         const { data } = await supabase
           .from('profiles')
-          .select('onboarding_state')
+          .select('onboarding_state, timezone')
           .eq('id', userId)
           .maybeSingle()
         const status =
           (data?.onboarding_state as { status?: string } | null)?.status ??
           'not_started'
         if (cancelled) return
+        // Keep the person's timezone current so "today" means their day.
+        // Only writes when the profile has no timezone yet.
+        if (!data?.timezone) {
+          try {
+            const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+            if (zone) {
+              await fetch('/api/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ timezone: zone }),
+              })
+            }
+          } catch {
+            /* Timezone sync is best-effort; the server falls back to UTC. */
+          }
+        }
         if (status !== 'done' && pathname !== '/onboarding') {
           router.replace('/onboarding')
         } else if (status === 'done' && pathname === '/onboarding') {
@@ -710,7 +733,7 @@ export function AppShell({
       </aside>
 
       <div className="lg:pl-72">
-        <main id="main-content" className="mx-auto w-full max-w-3xl px-4 pb-32 pt-6 sm:px-6 lg:px-8 lg:pb-16">
+        <main id="main-content" className="mx-auto w-full max-w-6xl px-4 pb-32 pt-6 sm:px-6 lg:px-8 lg:pb-16">
           {guardReady ? (
             children
           ) : (

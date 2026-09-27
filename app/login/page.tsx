@@ -7,8 +7,8 @@
    don't have to type it again after signing out. */
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState, type FormEvent } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, type FormEvent, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button, Card, Input } from '@/components/ui'
 import { Logo } from '@/components/Logo'
@@ -41,6 +41,26 @@ async function ensureUserRows(userId: string) {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+/** Shows a friendly note when an email-confirmation link could not be completed. */
+function ConfirmErrorNote() {
+  const params = useSearchParams()
+  if (params.get('error') !== 'confirm') return null
+  return (
+    <p role="alert" className="mb-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-lg text-[var(--text-primary)]">
+      That confirmation link didn&apos;t work — it may have expired. Please sign in below,
+      or request a new confirmation email.
+    </p>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
   const [email, setEmail] = useState(loadLastEmail)
   const [password, setPassword] = useState('')
@@ -90,6 +110,7 @@ export default function LoginPage() {
           </div>
         </div>
         <Card>
+          <ConfirmErrorNote />
           <form onSubmit={onSubmit} className="flex flex-col gap-5">
             <Input
               label="Email"

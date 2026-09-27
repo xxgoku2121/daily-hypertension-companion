@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
   api,
   useSaved,
@@ -45,9 +46,32 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  // BP routine times (stored inside onboarding_state, read by the Next Best Action engine)
+  const [bpMorning, setBpMorning] = useState('')
+  const [bpEvening, setBpEvening] = useState('')
+  const [bpInit, setBpInit] = useState(false)
+
   useEffect(() => {
     if (profile && !form) setForm({ ...profile })
   }, [profile, form])
+
+  useEffect(() => {
+    if (form && !bpInit) {
+      setBpMorning(form.onboarding_state?.bp_morning_time ?? '')
+      setBpEvening(form.onboarding_state?.bp_evening_time ?? '')
+      setBpInit(true)
+    }
+  }, [form, bpInit])
+
+  function saveBpRoutine(morning: string, evening: string) {
+    if (!form) return
+    const next = {
+      ...(form.onboarding_state ?? {}),
+      bp_morning_time: morning || null,
+      bp_evening_time: evening || null,
+    }
+    patchField('onboarding_state', next)
+  }
 
   async function patchField(field: string, value: unknown) {
     setForm((f) => (f ? { ...f, [field]: value } : f))
@@ -98,7 +122,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className={`mx-auto max-w-3xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
       <PageHeader title="Settings" subtitle="Make the app look and behave the way you like. Everything saves on its own." right={saved.el} />
       <ErrorNote message={error} />
       {saving && <p className="text-sm text-text-secondary mb-4">Saving…</p>}
@@ -106,7 +130,8 @@ export default function SettingsPage() {
       {!form ? (
         <p className="text-text-secondary">Loading your settings…</p>
       ) : (
-        <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-6 min-w-0">
           {/* Appearance */}
           <Card>
             <SectionTitle>Appearance</SectionTitle>
@@ -205,6 +230,49 @@ export default function SettingsPage() {
               label="Reminders and alerts"
               description="Medication reminders, BP check reminders, and appointment alerts."
             />
+          </Card>
+
+          {/* BP routine */}
+          <Card>
+            <SectionTitle>BP routine</SectionTitle>
+            <p className="text-text-secondary mb-4">
+              When do you usually check your blood pressure? We&apos;ll plan your day around these times.
+              Leave blank to use the usual morning and evening windows.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="block text-sm font-semibold text-text-primary mb-1">Morning check</span>
+                <input
+                  type="time"
+                  value={bpMorning}
+                  onChange={(e) => setBpMorning(e.target.value)}
+                  onBlur={(e) => saveBpRoutine(e.target.value, bpEvening)}
+                  className="w-full rounded-xl border border-border px-4 py-3"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-sm font-semibold text-text-primary mb-1">Evening check</span>
+                <input
+                  type="time"
+                  value={bpEvening}
+                  onChange={(e) => setBpEvening(e.target.value)}
+                  onBlur={(e) => saveBpRoutine(bpMorning, e.target.value)}
+                  className="w-full rounded-xl border border-border px-4 py-3"
+                />
+              </label>
+            </div>
+          </Card>
+
+          {/* Voice */}
+          <Card>
+            <SectionTitle>Voice input</SectionTitle>
+            <p className="text-text-secondary mb-3">
+              You can talk to the Health Guide instead of typing — tap the microphone in any conversation
+              and speak your message. It works on most phones and computers.
+            </p>
+            <Link href="/guide" className={`${btnSecondary} justify-center`}>
+              🎙️ Try it in the Health Guide
+            </Link>
           </Card>
 
           {/* Targets */}
@@ -326,6 +394,34 @@ export default function SettingsPage() {
               </div>
             </div>
           </Card>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <aside className="space-y-6" aria-label="Related settings">
+          <Card>
+            <SectionTitle>Your people</SectionTitle>
+            <p className="text-text-secondary mb-3">
+              Who helps you with your health, and what they are allowed to see.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Link href="/care-team" className={`${btnSecondary} justify-center`}>
+                🩺 My care team
+              </Link>
+              <Link href="/caregivers" className={`${btnSecondary} justify-center`}>
+                👪 Caregiver access
+              </Link>
+            </div>
+          </Card>
+          <Card>
+            <SectionTitle>Questions?</SectionTitle>
+            <p className="text-text-secondary mb-3">
+              The Health Guide can explain any setting in plain language.
+            </p>
+            <Link href="/guide" className={`${btnSecondary} justify-center`}>
+              💬 Ask the Health Guide
+            </Link>
+          </Card>
+        </aside>
         </div>
       )}
     </main>

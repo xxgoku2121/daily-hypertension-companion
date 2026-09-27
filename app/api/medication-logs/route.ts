@@ -115,12 +115,33 @@ export async function POST(req: NextRequest) {
       ? body.notes.trim().slice(0, 500)
       : null
 
-  // One log per medication per day: update the existing one if present.
+  // A "taken" tap is a dose event: always a new row, so twice- or
+  // three-times-daily medicines can record every dose. Deferral states
+  // ("snoozed", "skipped", "not_taken") describe today's outstanding dose:
+  // refresh the latest non-taken row when one exists, otherwise insert.
+  // Taken rows are never overwritten by a deferral.
+  if (status === 'taken') {
+    const { data, error } = await db
+      .from('medication_logs')
+      .insert({
+        user_id: user.id,
+        medication_id: medicationId,
+        status,
+        scheduled_for: scheduledFor,
+        notes,
+      })
+      .select()
+      .single()
+    if (error) return err("We couldn't save that. Please try again.", 500)
+    return NextResponse.json({ log: data, updated: false }, { status: 201 })
+  }
+
   const { data: existing } = await db
     .from('medication_logs')
     .select('id')
     .eq('user_id', user.id)
     .eq('medication_id', medicationId)
+    .neq('status', 'taken')
     .gte('logged_at', start)
     .lt('logged_at', end)
     .order('logged_at', { ascending: false })

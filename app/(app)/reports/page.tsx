@@ -41,10 +41,49 @@ export default function ReportsPage() {
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [report, setReport] = useState<any | null>(null)
+  const [preview, setPreview] = useState<{ readings: number; doses: number; questions: number } | null>(null)
 
   const [questions, setQuestions] = useState<Question[]>([])
   const [newQ, setNewQ] = useState('')
   const [qBusy, setQBusy] = useState(false)
+
+  function setPreset(days: number) {
+    const e = new Date()
+    const s = new Date()
+    s.setDate(s.getDate() - days)
+    setEnd(e.toISOString().slice(0, 10))
+    setStart(s.toISOString().slice(0, 10))
+    setReport(null)
+  }
+
+  /** Lightweight "what will be included" counts for the chosen range. */
+  async function loadPreview(fromDate: string, toDate: string) {
+    try {
+      const res = await fetch('/api/export?format=json')
+      if (!res.ok) return
+      const snap = await res.json()
+      const t = snap.tables
+      const from = new Date(fromDate + 'T00:00:00').getTime()
+      const to = new Date(toDate + 'T23:59:59.999').getTime()
+      const inRange = (iso: string) => {
+        const ms = new Date(iso).getTime()
+        return ms >= from && ms <= to
+      }
+      setPreview({
+        readings: (t.bp_readings || []).filter((r: any) => inRange(r.measured_at)).length,
+        doses: (t.medication_logs || []).filter((l: any) =>
+          inRange(l.logged_at) && ['taken', 'skipped', 'not_taken'].includes(l.status)
+        ).length,
+        questions: (t.doctor_questions || []).filter((q: any) => q.status === 'kept').length,
+      })
+    } catch {
+      // Preview is a nicety; the report itself will surface real errors.
+    }
+  }
+  useEffect(() => {
+    loadPreview(start, end)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end])
 
   async function loadQuestions() {
     try {
@@ -157,13 +196,30 @@ export default function ReportsPage() {
   const asked = questions.filter((q) => q.status === 'asked')
 
   return (
-    <main className={`mx-auto max-w-3xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
       <PrintStyles />
       <PageHeader title="Doctor reports" subtitle="A clear summary to bring to your appointment." />
       <ErrorNote message={error} />
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="min-w-0">
       <Card className="mb-6 no-print">
         <SectionTitle>Make a report</SectionTitle>
+        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Quick ranges">
+          {[
+            { days: 7, label: 'Last 7 days' },
+            { days: 30, label: 'Last 30 days' },
+            { days: 90, label: 'Last 90 days' },
+          ].map((p) => (
+            <button
+              key={p.days}
+              onClick={() => setPreset(p.days)}
+              className={btnSecondary}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 mb-4">
           <Field label="From">
             <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
@@ -172,6 +228,13 @@ export default function ReportsPage() {
             <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={inputCls} />
           </Field>
         </div>
+        {preview && (
+          <p className="mb-4 rounded-xl bg-surface-secondary p-3 text-base text-text-secondary" role="status">
+            This report will include <strong className="text-text-primary">{preview.readings} BP readings</strong>,{' '}
+            <strong className="text-text-primary">{preview.doses} dose records</strong>, and{' '}
+            <strong className="text-text-primary">{preview.questions} questions</strong> for your doctor.
+          </p>
+        )}
         <button className={btnPrimary} disabled={generating} onClick={generate}>
           {generating ? 'Making your report…' : 'Generate report'}
         </button>
@@ -258,6 +321,10 @@ export default function ReportsPage() {
         </div>
       )}
 
+      </div>
+
+      {/* RIGHT COLUMN: questions for the doctor */}
+      <aside className="no-print" aria-label="Questions for my doctor">
       {/* Questions manager */}
       <Card className="no-print">
         <SectionTitle>Questions for my doctor</SectionTitle>
@@ -308,6 +375,15 @@ export default function ReportsPage() {
           </div>
         )}
       </Card>
+      <Card className="mt-6">
+        <SectionTitle>Bring this to your visit</SectionTitle>
+        <p className="text-lg text-text-secondary">
+          Print the report or save it as a PDF, and bring your medicine list from the
+          Medicines page. Most visits go better with the numbers on paper.
+        </p>
+      </Card>
+      </aside>
+      </div>
     </main>
   )
 }

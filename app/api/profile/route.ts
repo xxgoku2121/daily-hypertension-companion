@@ -31,6 +31,7 @@ const ALLOW = new Set([
   'ai_history',
   'guide_permissions',
   'onboarding_state',
+  'timezone',
 ])
 
 const TEXT_SIZES = ['normal', 'large', 'extra_large']
@@ -67,6 +68,15 @@ export async function PATCH(req: Request) {
   for (const arr of ['conditions', 'guide_permissions']) {
     if (arr in updates && !Array.isArray(updates[arr]))
       return NextResponse.json({ error: 'That value could not be saved.' }, { status: 400 })
+  }
+  if ('timezone' in updates) {
+    const tz = String(updates.timezone)
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: tz })
+    } catch {
+      return NextResponse.json({ error: 'That timezone is not supported.' }, { status: 400 })
+    }
+    updates.timezone = tz
   }
 
   updates.id = user.id

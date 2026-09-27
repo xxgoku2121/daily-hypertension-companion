@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
   api,
   useProfile,
@@ -9,6 +10,7 @@ import {
   Card,
   SectionTitle,
   ErrorNote,
+  btnSecondary,
 } from '../_ui'
 
 interface Device {
@@ -47,14 +49,40 @@ export default function DevicesPage() {
   }, [])
 
   return (
-    <main className={`mx-auto max-w-3xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
+    <main className={`mx-auto max-w-6xl px-4 py-8 ${textSizeClass(profile?.text_size)}`}>
       <PageHeader title="Devices" subtitle="Anything connected to your health data lives here." />
       <ErrorNote message={error} />
 
       {loading ? (
         <p className="text-text-secondary">Loading…</p>
       ) : (
-        <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-6 min-w-0">
+          <section>
+            <SectionTitle>Available now</SectionTitle>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link href="/bp" className="block rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:shadow">
+                <p className="text-2xl" aria-hidden="true">📷</p>
+                <p className="mt-1 text-lg font-bold text-text-primary">BP photo capture</p>
+                <p className="text-text-secondary">Photograph your monitor screen — the numbers are filled in for you to confirm.</p>
+              </Link>
+              <Link href="/medications" className="block rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:shadow">
+                <p className="text-2xl" aria-hidden="true">🏷️</p>
+                <p className="mt-1 text-lg font-bold text-text-primary">Prescription photo</p>
+                <p className="text-text-secondary">Photograph a medicine label to prefill the details.</p>
+              </Link>
+              <Link href="/food" className="block rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:shadow">
+                <p className="text-2xl" aria-hidden="true">🍽️</p>
+                <p className="mt-1 text-lg font-bold text-text-primary">Meal photo scan</p>
+                <p className="text-text-secondary">Photograph a meal or nutrition label to start a food entry.</p>
+              </Link>
+              <Link href="/guide" className="block rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:shadow">
+                <p className="text-2xl" aria-hidden="true">🎙️</p>
+                <p className="mt-1 text-lg font-bold text-text-primary">Voice logging</p>
+                <p className="text-text-secondary">Talk to the Health Guide — it can log readings from what you say.</p>
+              </Link>
+            </div>
+          </section>
           {devices.length > 0 && (
             <section>
               <SectionTitle>Your devices</SectionTitle>
@@ -113,6 +141,21 @@ export default function DevicesPage() {
               ))}
             </div>
           </section>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <aside className="space-y-6" aria-label="About connections">
+          <Card>
+            <SectionTitle>Our promise</SectionTitle>
+            <p className="text-lg text-text-secondary">
+              Nothing here pretends to connect. Bluetooth monitors and health-app sync are genuinely not built yet —
+              when they are, this page is where they will live.
+            </p>
+          </Card>
+          <Link href="/guide" className={`${btnSecondary} justify-center`}>
+            💬 Ask the Health Guide about devices
+          </Link>
+        </aside>
         </div>
       )}
     </main>

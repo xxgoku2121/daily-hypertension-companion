@@ -512,3 +512,22 @@ create policy "owner_insert" on public.feedback for insert
   with check (auth.uid() = user_id);
 create policy "owner_read" on public.feedback for select
   using (auth.uid() = user_id);
+-- Sleep quality (rested / okay / restless), logged by hand on the Sleep page.
+alter table if exists public.daily_metrics
+  add column if not exists sleep_quality text;
+-- Habits & Routines: optional caffeine / alcohol / stress modules.
+-- Nothing is assumed: modules are off until the person enables them.
+alter table if exists public.profiles
+  add column if not exists routine_modules text[] default '{}';
+
+alter table if exists public.habit_records
+  drop constraint if exists habit_records_kind_check;
+alter table if exists public.habit_records
+  add constraint habit_records_kind_check
+  check (kind in (
+    'smoking_event', 'craving_event', 'craving_resisted',
+    'caffeine_log', 'alcohol_log', 'stress_checkin'
+  ));
+-- Store the person's IANA timezone so "today" means their day, not UTC.
+alter table if exists public.profiles
+  add column if not exists timezone text;

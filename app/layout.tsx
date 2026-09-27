@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import './globals.css'
-import { ThemeProvider, THEME_STORAGE_KEY } from '@/lib/theme'
+import { ThemeProvider } from '@/lib/theme'
+import { THEME_STORAGE_KEY } from '@/lib/theme-key'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {

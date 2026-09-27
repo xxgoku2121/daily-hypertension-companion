@@ -45,23 +45,11 @@ interface ApptRow {
   location: string | null
 }
 
-/* ---- time helpers (UTC day boundaries; see note in getNextAction) ---- */
-
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function todayStartIso(): string {
-  return `${todayDateString()}T00:00:00.000Z`
-}
-
-function nowMinutesUtc(): number {
-  const d = new Date()
-  return d.getUTCHours() * 60 + d.getUTCMinutes()
-}
+/* ---- time helpers ---- */
+import { zonedDayBounds, zonedMinutes } from './day'
 
 /** 'HH:MM' -> minutes since midnight, or null when unparseable. */
-function toMinutes(hhmm: string | null | undefined): number | null {
+export function toMinutes(hhmm: string | null | undefined): number | null {
   if (!hhmm) return null
   const m = /^(\d{1,2}):(\d{2})/.exec(hhmm.trim())
   if (!m) return null
@@ -71,16 +59,58 @@ function toMinutes(hhmm: string | null | undefined): number | null {
   return h * 60 + min
 }
 
+
+export interface BpWindows {
+  morning: [number, number]
+  evening: [number, number]
+}
+
+/**
+ * BP routine windows (minutes since midnight), shared by the Next Best
+ * Action engine and the Home Today list so they can never disagree.
+ * Priority: explicit onboarding times -> wake/bedtime -> sensible defaults.
+ */
+export function getBpWindows(
+  onboarding: OnboardingState,
+  life: { wake_time?: string | null; bedtime?: string | null } | null
+): BpWindows {
+  const morning = (): [number, number] => {
+    const explicit = toMinutes(onboarding.bp_morning_time)
+    if (explicit !== null) return [explicit, Math.min(explicit + 180, 1439)]
+    const wake = toMinutes(life?.wake_time)
+    if (wake !== null) return [wake + 30, Math.min(wake + 210, 1439)]
+    return [7 * 60, 11 * 60]
+  }
+  const evening = (): [number, number] => {
+    const explicit = toMinutes(onboarding.bp_evening_time)
+    if (explicit !== null) return [explicit, Math.min(explicit + 180, 1439)]
+    const bed = toMinutes(life?.bedtime)
+    if (bed !== null) return [Math.max(bed - 240, 0), Math.max(bed - 60, 0)]
+    return [18 * 60, 22 * 60]
+  }
+  return { morning: morning(), evening: evening() }
+}
+
+/** 'HH:MM' minutes -> 'h:MM AM' for display. */
+export function formatWindowTime(min: number): string {
+  const h24 = Math.floor(min / 60)
+  const m = min % 60
+  const suffix = h24 >= 12 ? 'PM' : 'AM'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`
+}
+
 export async function getNextAction(
   supabase: SupabaseClient,
   userId: string
 ): Promise<NextAction> {
-  // NOTE: day boundaries use UTC. A future version should store the user's
-  // timezone in profiles and compute local boundaries instead.
-  const today = todayDateString()
-  const dayStart = todayStartIso()
+  // Day boundaries follow the person's own timezone (profiles.timezone),
+  // falling back to UTC when unknown.
+  const tz = (await supabase.from('profiles').select('timezone').eq('id', userId).single()).data
+    ?.timezone as string | null
+  const { date: today, startIso: dayStart } = zonedDayBounds(tz)
   const nowIso = new Date().toISOString()
-  const nowMin = nowMinutesUtc()
+  const nowMin = zonedMinutes(tz)
 
   const [
     profileRes,
@@ -254,7 +284,7 @@ export async function getNextAction(
               )
               .join(', '),
       cta_label: 'Mark as taken',
-      cta_href: '/medicine',
+      cta_href: '/medications',
       why: 'This dose is scheduled for now.',
       medication_ids: dueMeds.map((m) => m.id),
     }
@@ -266,42 +296,45 @@ export async function getNextAction(
     bedtime?: string | null
   } | null
 
-  const morningWindow = (): [number, number] => {
-    const explicit = toMinutes(onboarding.bp_morning_time)
-    if (explicit !== null) return [explicit, Math.min(explicit + 180, 1439)]
-    const wake = toMinutes(life?.wake_time)
-    if (wake !== null) return [wake + 30, Math.min(wake + 210, 1439)]
-    return [7 * 60, 11 * 60]
-  }
-  const eveningWindow = (): [number, number] => {
-    const explicit = toMinutes(onboarding.bp_evening_time)
-    if (explicit !== null) return [explicit, Math.min(explicit + 180, 1439)]
-    const bed = toMinutes(life?.bedtime)
-    if (bed !== null)
-      return [Math.max(bed - 240, 0), Math.max(bed - 60, 0)]
-    return [18 * 60, 22 * 60]
-  }
+  const { morning: morningWindow, evening: eveningWindow } = getBpWindows(onboarding, life ?? null)
 
   const periods = new Set(readings.map((r) => r.period))
-  const [mStart, mEnd] = morningWindow()
+  const [mStart, mEnd] = morningWindow
   if (nowMin >= mStart && nowMin <= mEnd && !periods.has('morning')) {
     return {
       kind: 'bp_morning',
       title: 'Take your morning blood pressure',
       detail: 'A morning reading helps you and your doctor see the trend.',
       cta_label: 'Log reading',
-      cta_href: '/blood-pressure',
+      cta_href: '/bp',
       why: 'Readings taken at the same time each day are the most useful.',
     }
   }
-  const [eStart, eEnd] = eveningWindow()
+  const [eStart, eEnd] = eveningWindow
   if (nowMin >= eStart && nowMin <= eEnd && !periods.has('evening')) {
     return {
       kind: 'bp_evening',
       title: 'Take your evening blood pressure',
       detail: 'An evening reading completes today\u2019s picture.',
       cta_label: 'Log reading',
-      cta_href: '/blood-pressure',
+      cta_href: '/bp',
+      why: 'Readings taken at the same time each day are the most useful.',
+    }
+  }
+
+  /* ---- 4b. Missed morning reading catch-up (early afternoon) ----
+     Between the morning window closing and mid-afternoon, a missing
+     morning reading still deserves one gentle nudge — a late reading
+     logged as "morning" is more useful than none. After 3 PM we stay
+     quiet; the evening reading is coming up. */
+  if (!periods.has('morning') && nowMin > mEnd && nowMin < 15 * 60) {
+    return {
+      kind: 'bp_morning',
+      title: 'Take your blood pressure',
+      detail:
+        'You missed this morning\u2019s reading \u2014 a late one is still useful.',
+      cta_label: 'Log reading',
+      cta_href: '/bp',
       why: 'Readings taken at the same time each day are the most useful.',
     }
   }

@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import type { Medication, MedicationLog } from '@/lib/types'
 import { Modal } from '@/components/ui'
+import PhotoCapture from '@/components/PhotoCapture'
 
 const INSTRUCTION_SOURCE_OPTIONS = [
   { value: 'prescription', label: 'Prescription (most reliable)' },
@@ -34,13 +36,15 @@ function formatTime(hhmm: string): string {
   return `${h12}:${m[2]} ${suffix}`
 }
 
-/** Rough, hedged estimate of remaining supply. Never an exact claim. */
+/** Refill count, stated plainly. `refills_remaining` is the number of
+ *  prescription refills left on the pharmacy label — not pills — so we
+ *  never convert it into "days of supply". */
 function refillEstimate(med: MedicationRow): string | null {
-  if (med.refills_remaining === null || med.refills_remaining === undefined) return null
-  const freq = (med.frequency || '').toLowerCase()
-  const dosesPerDay = freq.includes('twice') ? 2 : freq.includes('three') ? 3 : 1
-  const approxDays = Math.max(1, Math.round(med.refills_remaining / dosesPerDay))
-  return `Approximately ${approxDays} day${approxDays === 1 ? '' : 's'} of refills may remain.`
+  if (med.refills_remaining === null || med.refills_remaining === undefined)
+    return null
+  const n = Number(med.refills_remaining)
+  if (!Number.isFinite(n)) return null
+  return `${n} refill${n === 1 ? '' : 's'} left on the prescription.`
 }
 
 function statusBadge(status: string): { label: string; classes: string } {
@@ -54,6 +58,28 @@ function statusBadge(status: string): { label: string; classes: string } {
     default:
       return { label: 'Pending', classes: 'bg-primary/10 text-primary' }
   }
+}
+
+/** Card badge for a medicine: per-dose progress for multi-dose schedules
+ *  ("1 of 2 taken"), otherwise the latest log status. */
+function doseBadge(
+  med: { as_needed: boolean | null; frequency: string | null },
+  takenCount: number,
+  latestStatus: string | null,
+): { label: string; classes: string } {
+  if (!med.as_needed) {
+    const expected = dosesPerDay(med.frequency)
+    if (expected > 1) {
+      if (takenCount >= expected)
+        return { label: 'Taken ✓', classes: 'bg-success/10 text-success' }
+      if (takenCount > 0)
+        return {
+          label: `${takenCount} of ${expected} taken`,
+          classes: 'bg-warning/10 text-warning',
+        }
+    }
+  }
+  return statusBadge(latestStatus ?? 'pending')
 }
 
 const inputCls =
@@ -90,6 +116,151 @@ const emptyForm: MedForm = {
   refills_remaining: '',
 }
 
+/** Expected doses per day, derived from the frequency text the person entered.
+ *  Defaults to 1 when the frequency is unknown — never guesses more. */
+function dosesPerDay(frequency: string | null | undefined): number {
+  const freq = (frequency || '').toLowerCase()
+  if (freq.includes('twice')) return 2
+  if (freq.includes('three')) return 3
+  return 1
+}
+
+/** 7-day adherence strip: share of scheduled doses taken each day. */
+function AdherenceCard({
+  meds,
+  weekLogs,
+}: {
+  meds: MedicationRow[]
+  weekLogs: Record<string, MedicationLog[]>
+}) {
+  const scheduled = meds.filter((m) => !m.as_needed)
+  if (scheduled.length === 0) return null
+  const dosesByMed = new Map(scheduled.map((m) => [m.id, dosesPerDay(m.frequency)]))
+  const days: { key: string; label: string; taken: number; total: number }[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const key = localDateKey(d)
+    const logs = weekLogs[key] ?? []
+    const takenByMed = new Map<string, number>()
+    for (const l of logs) {
+      if (l.status !== 'taken' || !dosesByMed.has(l.medication_id)) continue
+      takenByMed.set(l.medication_id, (takenByMed.get(l.medication_id) ?? 0) + 1)
+    }
+    // Each medicine counts toward at most its expected daily doses.
+    let taken = 0
+    let total = 0
+    for (const [id, expected] of dosesByMed) {
+      total += expected
+      taken += Math.min(takenByMed.get(id) ?? 0, expected)
+    }
+    days.push({
+      key,
+      label: d.toLocaleDateString(undefined, { weekday: 'narrow' }),
+      taken,
+      total,
+    })
+  }
+  const fullDays = days.filter((d) => d.taken >= d.total && d.total > 0).length
+  return (
+    <section
+      className="rounded-2xl border border-border bg-surface p-6 shadow-sm"
+      aria-labelledby="adherence-heading"
+    >
+      <h2 id="adherence-heading" className="text-lg font-bold uppercase tracking-wide text-text-secondary">
+        This week
+      </h2>
+      <p className="mt-2 text-lg text-text-primary">
+        <strong>{fullDays} of 7 days</strong> fully taken
+      </p>
+      <div className="mt-3 flex items-end justify-between gap-1" role="img" aria-label={`Medication adherence: ${fullDays} of 7 days fully taken`}>
+        {days.map((d) => {
+          const pct = d.total === 0 ? 0 : d.taken / d.total
+          return (
+            <div key={d.key} className="flex flex-1 flex-col items-center gap-1">
+              <div
+                className={`w-full rounded-t-md ${pct >= 1 ? 'bg-success' : pct > 0 ? 'bg-warning' : 'bg-surface-secondary'}`}
+                style={{ height: `${Math.max(8, pct * 64)}px` }}
+                title={`${d.taken} of ${d.total} taken`}
+              />
+              <span className="text-sm font-semibold text-text-secondary">{d.label}</span>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+/** Refill summary — only for medicines that track refills. */
+function RefillCard({
+  meds,
+  onEdit,
+}: {
+  meds: MedicationRow[]
+  onEdit: (med: MedicationRow) => void
+}) {
+  const tracked = meds.filter(
+    (m) => m.refills_remaining !== null && m.refills_remaining !== undefined
+  )
+  if (tracked.length === 0) return null
+  return (
+    <section
+      className="rounded-2xl border border-border bg-surface p-6 shadow-sm"
+      aria-labelledby="refill-heading"
+    >
+      <h2 id="refill-heading" className="text-lg font-bold uppercase tracking-wide text-text-secondary">
+        Refills
+      </h2>
+      <ul className="mt-3 space-y-3">
+        {tracked.map((m) => (
+          <li key={m.id} className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-lg font-bold text-text-primary">{m.name}</p>
+              <p className="text-base text-text-secondary">{refillEstimate(m)}</p>
+            </div>
+            <button
+              onClick={() => onEdit(m)}
+              className="min-h-[44px] shrink-0 px-2 text-base font-semibold text-primary underline"
+            >
+              Update
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** Pharmacy quick-call — shown when any medicine has pharmacy info. */
+function PharmacyCard({ meds }: { meds: MedicationRow[] }) {
+  const med = meds.find((m) => m.pharmacy || m.pharmacy_phone)
+  if (!med) return null
+  return (
+    <section
+      className="rounded-2xl border border-border bg-surface p-6 shadow-sm"
+      aria-labelledby="pharmacy-heading"
+    >
+      <h2 id="pharmacy-heading" className="text-lg font-bold uppercase tracking-wide text-text-secondary">
+        Pharmacy
+      </h2>
+      <p className="mt-2 text-xl font-bold text-text-primary">{med.pharmacy || 'Your pharmacy'}</p>
+      {med.pharmacy_phone ? (
+        <a
+          href={`tel:${med.pharmacy_phone}`}
+          className="mt-3 flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-primary px-6 text-xl font-bold text-primary-contrast"
+        >
+          📞 Call {med.pharmacy_phone}
+        </a>
+      ) : (
+        <p className="mt-2 text-base text-text-secondary">
+          Add a phone number to call your pharmacy in one tap.
+        </p>
+      )}
+    </section>
+  )
+}
+
 export default function MedicationsPage() {
   const [meds, setMeds] = useState<MedicationRow[]>([])
   const [logs, setLogs] = useState<MedicationLog[]>([])
@@ -107,6 +278,13 @@ export default function MedicationsPage() {
   const [archived, setArchived] = useState<MedicationRow[]>([])
   const [archiveConfirmId, setArchiveConfirmId] = useState<string | null>(null)
   const [actingId, setActingId] = useState<string | null>(null)
+
+  // photo prescription flow
+  const [photoOpen, setPhotoOpen] = useState(false)
+  const [photoNotice, setPhotoNotice] = useState(false)
+
+  // 7-day adherence
+  const [weekLogs, setWeekLogs] = useState<Record<string, MedicationLog[]>>({})
 
   const fail = useCallback((message: string, retry: () => void) => {
     setError(message)
@@ -129,6 +307,27 @@ export default function MedicationsPage() {
       if (!logsRes.ok) throw new Error(logsData.error || 'logs')
       setMeds(medsData.medications ?? [])
       setLogs(logsData.logs ?? [])
+      // Past 6 days of logs for the weekly adherence strip (best effort).
+      const pastDates: string[] = []
+      for (let i = 1; i <= 6; i++) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        pastDates.push(localDateKey(d))
+      }
+      const weekResults = await Promise.all(
+        pastDates.map(async (date) => {
+          try {
+            const r = await fetch(`/api/medication-logs?date=${date}&tz_offset=${tzOffset}`)
+            const j = await r.json()
+            return { date, logs: (r.ok ? j.logs : []) as MedicationLog[] }
+          } catch {
+            return { date, logs: [] as MedicationLog[] }
+          }
+        })
+      )
+      const map: Record<string, MedicationLog[]> = { [today]: logsData.logs ?? [] }
+      for (const w of weekResults) map[w.date] = w.logs
+      setWeekLogs(map)
     } catch {
       fail("We couldn't load your medicines right now.", loadAll)
     } finally {
@@ -140,7 +339,13 @@ export default function MedicationsPage() {
     loadAll()
   }, [loadAll])
 
-  const logByMed = (medId: string) => logs.find((l) => l.medication_id === medId)
+  const logsForMed = (medId: string) => logs.filter((l) => l.medication_id === medId)
+  const takenCountForMed = (medId: string) =>
+    logsForMed(medId).filter((l) => l.status === 'taken').length
+  const latestLogForMed = (medId: string) =>
+    logsForMed(medId).sort((a, b) =>
+      (b.logged_at ?? '').localeCompare(a.logged_at ?? ''),
+    )[0] ?? null
 
   async function markStatus(med: MedicationRow, status: 'taken' | 'snoozed') {
     setActingId(med.id)
@@ -159,15 +364,52 @@ export default function MedicationsPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'log')
       const log = data.log as MedicationLog
-      setLogs((prev) => {
-        const rest = prev.filter((l) => l.id !== log.id && l.medication_id !== med.id)
-        return [...rest, log]
-      })
+      // The API returns the created/updated row: replace it by id and keep
+      // every other row, so multiple taken doses in one day all survive.
+      setLogs((prev) => [...prev.filter((l) => l.id !== log.id), log])
     } catch {
       fail("We couldn't save that.", () => markStatus(med, status))
     } finally {
       setActingId(null)
     }
+  }
+
+  /** Map a vision-extraction result onto the medicine form, then let the
+      person review and confirm — nothing is saved from the photo alone. */
+  function handlePhotoExtracted(data: Record<string, unknown>) {
+    const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+    const freqRaw = str(data.frequency).toLowerCase() + ' ' + str(data.directions).toLowerCase()
+    let frequency = 'Daily'
+    let asNeeded = false
+    if (/as needed|prn/.test(freqRaw)) {
+      frequency = 'As needed'
+      asNeeded = true
+    } else if (/three|3x|three times/.test(freqRaw)) {
+      frequency = 'Three times daily'
+    } else if (/twice|2x|two times|bid/.test(freqRaw)) {
+      frequency = 'Twice daily'
+    } else if (/week/.test(freqRaw)) {
+      frequency = 'Weekly'
+    }
+    const refillsRaw = str(data.refills)
+    const refillsNum = refillsRaw.match(/\d+/)?.[0] ?? ''
+    setEditingId(null)
+    setForm({
+      ...emptyForm,
+      name: str(data.name),
+      dose: str(data.strength),
+      frequency,
+      as_needed: asNeeded,
+      instructions: str(data.directions),
+      instruction_source: str(data.name) ? 'prescription' : 'user',
+      prescriber: str(data.prescriber),
+      pharmacy: str(data.pharmacy),
+      refills_remaining: refillsNum,
+    })
+    setFormError(null)
+    setPhotoNotice(true)
+    setPhotoOpen(false)
+    setFormOpen(true)
   }
 
   function openAdd() {
@@ -288,18 +530,26 @@ export default function MedicationsPage() {
     setForm((prev) => ({ ...prev, [key]: value }))
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 space-y-8">
-      <div className="flex items-center justify-between gap-4">
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text-primary">Medicines</h1>
           <p className="mt-1 text-lg text-text-secondary">Today&apos;s schedule, all in one place.</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="min-h-[56px] shrink-0 rounded-xl bg-primary px-6 text-xl font-bold text-primary-contrast hover:bg-primary-hover"
-        >
-          + Add
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            onClick={() => setPhotoOpen(true)}
+            className="min-h-[56px] rounded-xl border-2 border-primary px-5 text-xl font-bold text-primary"
+          >
+            📷 Photo
+          </button>
+          <button
+            onClick={openAdd}
+            className="min-h-[56px] rounded-xl bg-primary px-6 text-xl font-bold text-primary-contrast hover:bg-primary-hover"
+          >
+            + Add
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -311,7 +561,7 @@ export default function MedicationsPage() {
                 setError(null)
                 retryAction()
               }}
-              className="mt-3 min-h-[48px] rounded-xl bg-danger px-6 text-lg font-bold text-white hover:bg-danger"
+              className="mt-3 min-h-[48px] rounded-xl bg-danger px-6 text-lg font-bold text-on-danger hover:bg-danger"
             >
               Try Again
             </button>
@@ -319,26 +569,54 @@ export default function MedicationsPage() {
         </div>
       )}
 
+      {/* Photo prescription capture */}
+      {photoOpen && (
+        <div className="mt-6">
+          <PhotoCapture
+            kind="medicine"
+            onExtracted={handlePhotoExtracted}
+            onCancel={() => setPhotoOpen(false)}
+          />
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-8">
       {/* Today's schedule */}
       <section aria-labelledby="schedule-heading">
         <h2 id="schedule-heading" className="text-2xl font-bold text-text-primary">Today</h2>
         {loading ? (
           <p className="mt-3 text-lg text-text-secondary">Loading…</p>
         ) : meds.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-border bg-surface p-6 text-center">
-            <p className="text-lg text-text-secondary">No medicines yet. Add your first one to get started.</p>
-            <button
-              onClick={openAdd}
-              className="mt-4 min-h-[56px] rounded-xl bg-primary px-8 text-xl font-bold text-primary-contrast hover:bg-primary-hover"
-            >
-              Add a medicine
-            </button>
+          <div className="mt-3 rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
+            <p className="text-4xl" aria-hidden="true">💊</p>
+            <p className="mt-2 text-xl font-bold text-text-primary">No medicines yet</p>
+            <p className="mt-1 text-lg text-text-secondary">
+              Take a picture of your prescription and we&apos;ll help set it up — or enter it by hand.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => setPhotoOpen(true)}
+                className="min-h-[56px] rounded-xl border-2 border-primary px-6 text-xl font-bold text-primary"
+              >
+                📷 Take photo
+              </button>
+              <button
+                onClick={openAdd}
+                className="min-h-[56px] rounded-xl bg-primary px-6 text-xl font-bold text-primary-contrast hover:bg-primary-hover"
+              >
+                Enter manually
+              </button>
+            </div>
           </div>
         ) : (
           <ul className="mt-3 space-y-4">
             {meds.map((med) => {
-              const log = logByMed(med.id)
-              const badge = statusBadge(log?.status ?? 'pending')
+              const takenCount = takenCountForMed(med.id)
+              const latest = latestLogForMed(med.id)
+              const badge = doseBadge(med, takenCount, latest?.status ?? null)
+              const expected = med.as_needed ? null : dosesPerDay(med.frequency)
+              const allDosesTaken = expected !== null && takenCount >= expected
               const estimate = refillEstimate(med)
               return (
                 <li key={med.id} className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
@@ -373,10 +651,10 @@ export default function MedicationsPage() {
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <button
                       onClick={() => markStatus(med, 'taken')}
-                      disabled={actingId === med.id}
-                      className="min-h-[56px] rounded-xl bg-success px-4 text-xl font-bold text-white hover:bg-success disabled:opacity-50"
+                      disabled={actingId === med.id || allDosesTaken}
+                      className="min-h-[56px] rounded-xl bg-success px-4 text-xl font-bold text-on-success hover:bg-success disabled:opacity-50"
                     >
-                      I Took It
+                      {allDosesTaken ? 'Taken ✓' : 'I Took It'}
                     </button>
                     <button
                       onClick={() => markStatus(med, 'snoozed')}
@@ -437,15 +715,43 @@ export default function MedicationsPage() {
           )
         )}
       </section>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <aside className="space-y-6">
+          <AdherenceCard meds={meds} weekLogs={weekLogs} />
+          <RefillCard meds={meds} onEdit={openEdit} />
+          <PharmacyCard meds={meds} />
+          <Link
+            href="/guide"
+            className="block rounded-2xl border border-border bg-surface p-6 shadow-sm transition hover:shadow"
+          >
+            <p className="text-xl font-bold text-text-primary">💬 Ask about my medicines</p>
+            <p className="mt-1 text-base text-text-secondary">
+              The Health Guide knows your schedule and can answer questions about your medicines.
+            </p>
+          </Link>
+        </aside>
+      </div>
 
       {/* Add / edit form */}
       <Modal
         open={formOpen}
-        onClose={() => setFormOpen(false)}
+        onClose={() => {
+          setFormOpen(false)
+          setPhotoNotice(false)
+        }}
         title={editingId ? 'Edit medicine' : 'Add a medicine'}
         wide
       >
         <div className="mt-2 space-y-4">
+          {photoNotice && (
+            <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4" role="status">
+              <p className="text-lg font-semibold text-text-primary">
+                📷 We read this from your photo — please check it before saving.
+              </p>
+            </div>
+          )}
               <div>
                 <label className={labelCls} htmlFor="med-name">Medicine name *</label>
                 <input id="med-name" className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Amlodipine" />

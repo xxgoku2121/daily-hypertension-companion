@@ -207,10 +207,13 @@ export async function buildGuideContext(
         )
       }
       const todays = todayMedLogs.filter((l) => l.medication_id === med.id)
-      const taken = todays.find((l) => l.status === 'taken')
+      const takenCount = todays.filter((l) => l.status === 'taken').length
+      const latestTaken = todays
+        .filter((l) => l.status === 'taken')
+        .sort((a, b) => (b.logged_at ?? '').localeCompare(a.logged_at ?? ''))[0]
       observed.push(
-        taken
-          ? `${label}: marked taken today at ${shortTime(taken.logged_at)}.`
+        takenCount > 0
+          ? `${label}: marked taken ${takenCount > 1 ? `${takenCount} times ` : ''}today${latestTaken ? ` (latest ${shortTime(latestTaken.logged_at)})` : ''}.`
           : `${label}: not yet marked taken today (scheduled ${med.time ?? 'unscheduled'}).`
       )
     }

@@ -18,8 +18,9 @@ import {
   type ReactNode,
 } from 'react'
 import type { Appearance, TextSize } from './types'
+import { THEME_STORAGE_KEY } from './theme-key'
 
-export const THEME_STORAGE_KEY = 'hc-theme'
+export { THEME_STORAGE_KEY }
 
 export interface ThemePrefs {
   appearance: Appearance

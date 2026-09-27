@@ -28,8 +28,12 @@ export async function GET(req: Request) {
     .order('logged_at', { ascending: false })
   if (error) return NextResponse.json({ error: 'Could not load meals.' }, { status: 500 })
 
-  const total_sodium = (data ?? []).reduce((s, m) => s + (m.sodium_mg || 0), 0)
-  return NextResponse.json({ meals: data ?? [], total_sodium, date })
+  const total_sodium = (data ?? []).reduce(
+    (s, m) => s + (typeof m.sodium_mg === 'number' ? m.sodium_mg : 0),
+    0
+  )
+  const unknown_sodium = (data ?? []).filter((m) => m.sodium_mg == null).length
+  return NextResponse.json({ meals: data ?? [], total_sodium, unknown_sodium, date })
 }
 
 // POST {meal_name, meal_type?, portion?, sodium_mg?, notes?}
@@ -42,6 +46,11 @@ export async function POST(req: Request) {
   if (!meal_name || !String(meal_name).trim())
     return NextResponse.json({ error: 'Please name the meal or food.' }, { status: 400 })
 
+  // Sodium is honest-unknown unless a real number is given — never a silent 0.
+  const sodiumRaw = sodium_mg === '' || sodium_mg == null ? null : Number(sodium_mg)
+  const sodium =
+    sodiumRaw == null || Number.isNaN(sodiumRaw) ? null : Math.max(0, Math.round(sodiumRaw))
+
   const { data, error } = await supabase
     .from('food_records')
     .insert({
@@ -49,7 +58,7 @@ export async function POST(req: Request) {
       meal_name: String(meal_name).trim(),
       meal_type: meal_type || null,
       portion: portion || null,
-      sodium_mg: Math.max(0, Math.round(Number(sodium_mg) || 0)),
+      sodium_mg: sodium,
       notes: notes || null,
     })
     .select()

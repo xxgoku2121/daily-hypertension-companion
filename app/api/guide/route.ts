@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildGuideContext, type GuideContext } from '@/lib/guide-context'
+import { getTodayPlan } from '@/lib/today-plan'
 import type { EvidenceSource } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -864,12 +865,25 @@ export async function GET() {
         .limit(1),
     ])
 
+    // Today's real state drives the suggestion chips on the client.
+    let plan: Awaited<ReturnType<typeof getTodayPlan>> = []
+    try {
+      plan = await getTodayPlan(supabase, user.id)
+    } catch {
+      plan = []
+    }
+
     return NextResponse.json({
       messages,
       meta: {
         name: profile.name ?? null,
         has_medications: ((meds ?? []) as { id: string }[]).length > 0,
         has_craving_history: ((habits ?? []) as { id: string }[]).length > 0,
+        bp_pending: plan.some(
+          (p) => (p.id === 'bp-morning' || p.id === 'bp-evening') && !p.done
+        ),
+        meds_pending_today: plan.filter((p) => p.id.startsWith('med-') && !p.done).length,
+        appointment_today: plan.some((p) => p.id.startsWith('appt-')),
       },
     })
   } catch {
